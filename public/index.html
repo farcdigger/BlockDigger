@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Block Digger - Farcaster Edition</title>
+  
+  <!-- Farcaster Frame Meta Tags -->
+  <meta name="fc:frame" content="vNext">
+  <meta name="fc:frame:image" content="https://YOUR_DOMAIN/block-digger-preview.png">
+  <meta name="fc:frame:button:1" content="⛏️ Start Mining">
+  <meta name="fc:frame:button:1:action" content="launch_frame">
+  <meta name="fc:frame:button:1:target" content="https://YOUR_DOMAIN/block-digger">
+  
+  <link rel="manifest" href="/block-digger.json">
+  <link rel="icon" type="image/png" href="/pickaxe.png">
+  
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  
+  <style>
+    @font-face {
+      font-family: 'PixelFont';
+      src: url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    }
+    
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    * {
+      box-sizing: border-box;
+      image-rendering: pixelated;
+      font-family: 'Press Start 2P', cursive;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #181425;
+      color: #eee;
+      overflow-x: hidden;
+    }
+
+    header {
+      text-align: center;
+      padding: 1rem;
+      background: #262b44;
+      border-bottom: 4px solid #0f0f1b;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #ffae00;
+      text-shadow: 3px 3px 0 #0f0f1b;
+    }
+
+    #wallet {
+      margin: 0.5rem 0;
+      font-size: 0.7rem;
+      color: #8b9bb4;
+    }
+
+    .row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 1rem 0;
+      padding: 0 1rem;
+    }
+
+    .card {
+      background: #262b44;
+      padding: 1rem;
+      border: 4px solid #0f0f1b;
+      border-radius: 8px;
+      box-shadow: 5px 5px 0 #0f0f1b;
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .card h2 {
+      margin: 0 0 0.5rem;
+      font-size: 0.8rem;
+      color: #29adff;
+      border-bottom: 4px dotted #3a4466;
+      padding-bottom: 0.5rem;
+    }
+
+    input, button {
+      width: 100%;
+      margin-top: 0.5rem;
+      padding: 8px;
+      font-size: 0.6rem;
+      border: none;
+      border-radius: 4px;
+      font-family: 'Press Start 2P', cursive;
+    }
+
+    input {
+      background-color: #1f1a2e;
+      color: #fff;
+      border: 2px solid #3a4466;
+    }
+
+    input:focus {
+      outline: none;
+      background: #2a1f3c;
+      border: 2px solid #29adff;
+    }
+
+    button {
+      background: #ffae00;
+      color: #181425;
+      cursor: pointer;
+      border: 4px solid #181425;
+      box-shadow: 2px 2px 0 #0f0f1b;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #ff8800;
+      transform: translateY(-2px);
+    }
+
+    button:disabled {
+      background: #555;
+      color: #888;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    #minerAnimation {
+      display: none;
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .pickaxe-anim {
+      font-size: 2.5rem;
+      display: inline-block;
+      animation: swing 0.5s infinite ease-in-out;
+      transform-origin: bottom center;
+      margin-bottom: 0.5rem;
+    }
+
+    @keyframes swing {
+      0% { transform: rotate(0deg); }
+      25% { transform: rotate(-30deg); }
+      50% { transform: rotate(0deg); }
+      75% { transform: rotate(30deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    .progress-bar {
+      width: 80%;
+      height: 8px;
+      background: #1f1a2e;
+      margin: 0 auto;
+      border: 1px solid #29adff;
+    }
+
+    @keyframes progressLoop {
+      0%   { width: 0%; }
+      100% { width: 100%; }
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #29adff;
+      animation: progressLoop 1.2s linear infinite;
+    }
+
+    #leaderboardCard table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #leaderboardCard th, #leaderboardCard td {
+      padding: 6px 8px;
+      border: none;
+      font-size: 0.6rem;
+      text-align: left;
+    }
+
+    #leaderboardCard th {
+      color: #29adff;
+      font-size: 0.7rem;
+      padding-bottom: 4px;
+    }
+
+    #leaderboardCard tr:not(:first-child):hover {
+      background-color: #1f1a2e;
+    }
+
+    .info-alert {
+      background: #1f1a2e;
+      padding: 0.5rem;
+      border-left: 4px solid #ffae00;
+      margin: 0.5rem 0;
+      font-size: 0.6rem;
+      line-height: 1.4;
+    }
+
+    .action-wrapper {
+      position: relative;
+    }
+    
+    .action-label {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: #1f1a2e;
+      font-size: 0.5rem;
+      padding: 2px 4px;
+      border-radius: 4px;
+      color: #29adff;
+    }
+
+    .warning {
+      color: #ff6b6b;
+      font-weight: bold;
+    }
+
+    .mining-disabled {
+      background: rgba(0,0,0,0.5);
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      color: #ff6b6b;
+      text-align: center;
+      font-size: 0.6rem;
+      display: none;
+    }
+
+    #debugInfo {
+      display: none;
+      font-size: 0.5rem;
+      margin-top: 1rem;
+      padding: 0.5rem;
+      background: #1f1a2e;
+      border-radius: 4px;
+    }
+    
+    .wallet-info {
+      display: flex;
+      justify-content: center;
+      background: #1f1a2e;
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+      font-size: 0.7rem;
+    }
+    
+    .wallet-balance {
+      color: #ffae00;
+      margin-left: 10px;
+    }
+    
+    .balance-divider {
+      margin: 0 5px;
+      color: #3a4466;
+    }
+    
+    .miner-purchased {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #262b44;
+      border: 2px solid #29adff;
+      padding: 8px;
+      border-radius: 4px;
+      color: #29adff;
+      margin-top: 0.5rem;
+      font-size: 0.6rem;
+    }
+    
+    .miner-purchased-icon {
+      margin-right: 8px;
+      font-size: 1rem;
+    }
+    
+    .auto-connecting {
+      font-size: 0.6rem;
+      color: #8b9bb4;
+      margin-top: 8px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+    
+    .social-links {
+      text-align: center;
+      margin-top: 0.5rem;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    
+    .social-links a {
+      display: inline-block;
+      transition: transform 0.2s;
+    }
+    
+    .social-links a:hover {
+      transform: scale(1.1);
+    }
+    
+    .social-links img {
+      width: 28px;
+      height: 28px;
+      image-rendering: auto;
+    }
+    
+    /* Farcaster Frame Specific Styles */
+    .farcaster-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(139, 92, 246, 0.2);
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.6rem;
+      color: #8B5CF6;
+      margin-top: 8px;
+    }
+    
+    .share-button {
+      background: #8B5CF6;
+      color: white;
+      margin-top: 1rem;
+      font-size: 0.6rem;
+    }
+    
+    .share-button:hover {
+      background: #7C3AED;
+    }
+    
+    /* Mobile Optimizations */
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1rem;
+      }
+      
+      .card {
+        max-width: 100%;
+        margin: 0.5rem;
+      }
+      
+      .pickaxe-anim {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⛏️ BLOCK DIGGER</h1>
+    <div id="wallet">NOT CONNECTED</div>
+    <div id="autoConnecting" class="auto-connecting" style="display:none">Auto-connecting wallet...</div>
+    <div class="wallet-info" id="walletInfo" style="display:none">
+      <span>Balance:</span>
+      <span class="wallet-balance" id="mineBalance">0 MINE</span>
+    </div>
+    <button id="connectBtn">🔌 CONNECT WALLET</button>
+    <div class="farcaster-badge">
+      <span>🟣</span>
+      <span>Farcaster Edition</span>
+    </div>
+  </header>
+
+  <div class="social-links">
+    <a href="https://x.com/blockdigger" target="_blank">
+      <img src="https://cdn-icons-png.flaticon.com/512/5968/5968958.png" alt="X" />
+    </a>
+    <a href="https://t.me/blockdigger" target="_blank">
+      <img src="https://cdn-icons-png.flaticon.com/512/2111/2111646.png" alt="Telegram" />
+    </a>
+    <a href="https://warpcast.com/~/channel/blockdigger" target="_blank">
+      <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDI0QzE4LjYyNzQgMjQgMjQgMTguNjI3NCAyNCAxMkMyNCA1LjM3MjU4IDE4LjYyNzQgMCAxMiAwQzUuMzcyNTggMCAwIDUuMzcyNTggMCAxMkMwIDE4LjYyNzQgNS4zNzI1OCAyNCAxMiAyNFoiIGZpbGw9IiM4QjVDRjYiLz4KPC9zdmc+" alt="Farcaster" />
+    </a>
+  </div>
+
+  
+  <div class="row">
+    <div class="card">
+      <h2>🎮 ACTIONS</h2>
+      
+      <div class="action-wrapper" id="joiningSection">
+        <span class="action-label">Step 1</span>
+        <button id="joinBtn">🚀 JOIN MINING (0.003 ETH)</button>
+        <div class="info-alert">First pay 0.003 ETH to buy a miner</div>
+      </div>
+      
+      <div class="miner-purchased" id="minerPurchased" style="display:none">
+        <span class="miner-purchased-icon">✅</span>
+        <span>You already own a miner</span>
+      </div>
+      
+      <div id="minerAnimation">
+        <div class="pickaxe-anim">⛏️</div>
+        <div class="progress-bar"><div class="progress-fill"></div></div>
+        <div id="minerQuote" style="margin-top:0.75rem; font-size:0.5rem; color:#8b9bb4; min-height:24px;"></div>
+        <div id="miningDisabled" class="mining-disabled">⚠️ MINING PAUSED: STAKE TOKENS TO START</div>
+      </div>
+
+      <div class="action-wrapper">
+        <span class="action-label">Step 2</span>
+        <input type="number" id="stakeAmount" placeholder="AMOUNT TO STAKE" />
+        <div id="approveStakeButtons">
+          <button id="approveBtn">📑 APPROVE MINE</button>
+          <button id="stakeBtn" style="display:none;">📥 STAKE</button>
+        </div>
+      </div>
+
+      <div class="action-wrapper">
+        <span class="action-label">Optional</span>
+        <input type="number" id="unstakeAmount" placeholder="AMOUNT TO UNSTAKE" />
+        <button id="unstakeBtn">🔥 UNSTAKE</button>
+      </div>
+      
+      <button class="share-button" onclick="shareOnFarcaster()">🟣 Share on Farcaster</button>
+      
+      <div id="debugInfo"></div>
+    </div>
+
+    <div class="card" id="statsCard">
+      <h2>📊 STATS</h2>
+      <p id="stakingInfo" style="font-size: 0.6rem;">Your Stake: 0 MINE</p>
+      <p id="hashrateInfo" style="font-size: 0.6rem;">Hashrate: 0 H/s</p>
+      <p id="pendingInfo" style="font-size: 0.6rem;">Pending Rewards: 0 MINE</p>
+      <p id="globalInfo" style="font-size: 0.6rem;">Global Hashrate: 0 H/s</p>
+      <p id="hourlyInfo" style="font-size: 0.6rem;">Reward per Block: 0 MINE</p>
+      <p id="totalRewards" style="font-size: 0.6rem;">Total Earned: 0 MINE</p>
+      <button id="claimBtn" disabled>💰 CLAIM REWARDS</button>
+      <div class="info-alert">You must stake to earn rewards</div>
+    </div>
+  </div>
+
+  <div class="card" id="leaderboardCard" style="max-width:600px; margin: 2rem auto;">
+    <h2>🏆 LEADERBOARD</h2>
+    <table>
+      <thead><tr><th>ADDRESS</th><th>HASHRATE</th></tr></thead>
+      <tbody id="leaderboardBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="max-width:600px; margin: 1rem auto 2rem;">
+    <h2>ℹ️ ABOUT THE GAME</h2>
+    <p class="info" style="font-size: 0.6rem; line-height: 1.6;">Block Digger is a retro-style mining game on Base. Pay 0.003 ETH to buy a miner, then stake MINE tokens to earn rewards!</p>
+    <p class="info warning" style="font-size: 0.6rem; line-height: 1.6;">IMPORTANT: Mining doesn't start until you stake tokens!</p>
+  </div>
+
+  <script type="module">
+    // Import Farcaster SDK
+    let sdk = null;
+    let isFarcasterFrame = false;
+    
+    // Check if we're in Farcaster
+    async function checkFarcasterEnvironment() {
+      try {
+        const module = await import('https://esm.sh/@farcaster/frame-sdk');
+        sdk = module.sdk;
+        isFarcasterFrame = true;
+        console.log('Running in Farcaster Frame');
+        
+        // Initialize Farcaster SDK
+        await sdk.actions.ready();
+        
+        // Show Farcaster-specific features
+        document.querySelector('.farcaster-badge').style.display = 'inline-flex';
+        
+        return true;
+      } catch (error) {
+        console.log('Running in web browser');
+        isFarcasterFrame = false;
+        return false;
+      }
+    }
+    
+    // Share on Farcaster function
+    window.shareOnFarcaster = async function() {
+      const hashrate = document.getElementById('hashrateInfo').innerText;
+      const totalEarned = document.getElementById('totalRewards').innerText;
+      
+      const shareText = `⛏️ I'm mining in Block Digger!\n\n${hashrate}\n${totalEarned}\n\nJoin the mining revolution on Base! 🚀\n\nPlay now 👇`;
+      
+      if (isFarcasterFrame && sdk) {
+        try {
+          await sdk.actions.openUrl(`https://warpcast.com/~/compose?text=${encodeURIComponent(shareText)}`);
+        } catch (error) {
+          console.error('Failed to open Farcaster compose:', error);
+          fallbackShare(shareText);
+        }
+      } else {
+        fallbackShare(shareText);
+      }
+    };
+    
+    function fallbackShare(text) {
+      if (navigator.share) {
+        navigator.share({
+          title: 'Block Digger',
+          text: text
+        }).catch(console.error);
+      } else {
+        navigator.clipboard.writeText(text).then(() => {
+          alert('Share text copied to clipboard!');
+        }).catch(console.error);
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Check Farcaster environment
+      await checkFarcasterEnvironment();
+      
+      // Contract addresses
+      const miningPoolAddress = "0xdf0ae32667f27be73f22e5281515a0bc97c2c7bd";
+      const mineTokenAddress = "0x47f4bf15b6a5bb90c057fa6a7b5f1b1558150b00";
+
+      const miningPoolABI = [
+        "function joinMining() payable",
+        "function stakeMINE(uint256 amount)",
+        "function instantUnstake(uint256 amount)",
+        "function claimRewards()",
+        "function getHashrate(address) view returns (uint256)",
+        "function getPendingReward(address) view returns (uint256)",
+        "function getGlobalHashrate() view returns (uint256)",
+        "function getRewardPerBlock() view returns (uint256)",
+        "function getMinerStats() view returns (address[],uint256[])",
+        "function isMining(address) view returns (bool)"
+      ];
+      
+      const mineTokenABI = [
+        "function approve(address,uint256) public returns(bool)",
+        "function allowance(address,address) view returns(uint256)",
+        "function balanceOf(address) view returns (uint256)"
+      ];
+
+      let provider, signer, user, miningPool, mineToken;
+      let isApprovedForAll = false;
+      let hasStakedTokens = false;
+      let hasJoinedMining = false;
+      let isInitialConnect = true;
+      
+      // Debug mode
+      const DEBUG = false;
+      
+      // Safe values
+      const safeValues = {
+        stake: "0", 
+        pendingReward: "0",
+        hashrate: "0",
+        totalEarned: "0",
+        mineBalance: "0"
+      };
+      
+      // Button references
+      const connectBtn = document.getElementById('connectBtn');
+      const joinBtn = document.getElementById('joinBtn');
+      const approveBtn = document.getElementById('approveBtn');
+      const stakeBtn = document.getElementById('stakeBtn');
+      const unstakeBtn = document.getElementById('unstakeBtn');
+      const claimBtn = document.getElementById('claimBtn');
+      
+      // Button event listeners
+      connectBtn.addEventListener('click', connect);
+      joinBtn.addEventListener('click', joinMining);
+      approveBtn.addEventListener('click', approveMINE);
+      stakeBtn.addEventListener('click', stakeMINE);
+      unstakeBtn.addEventListener('click', unstakeMINE);
+      claimBtn.addEventListener('click', claimRewards);
+      
+      // Local storage keys for persistence
+      const STORAGE_KEYS = {
+        HAS_JOINED_MINING: 'blockDigger_hasJoinedMining',
+        HAS_STAKED_TOKENS: 'blockDigger_hasStakedTokens',
+        USER_ADDRESS: 'blockDigger_userAddress'
+      };
+      
+      // Load any saved state
+      function loadSavedState() {
+        const savedHasJoinedMining = localStorage.getItem(STORAGE_KEYS.HAS_JOINED_MINING);
+        const savedHasStakedTokens = localStorage.getItem(STORAGE_KEYS.HAS_STAKED_TOKENS);
+        const savedUserAddress = localStorage.getItem(STORAGE_KEYS.USER_ADDRESS);
+        
+        if (savedUserAddress && savedUserAddress === user) {
+          if (savedHasJoinedMining === 'true') {
+            hasJoinedMining = true;
+            document.getElementById('joiningSection').style.display = 'none';
+            document.getElementById('minerPurchased').style.display = 'flex';
+          }
+          
+          if (savedHasStakedTokens === 'true') {
+            hasStakedTokens = true;
+          }
+          
+          updateMiningStatus();
+        }
+      }
+      
+      // Save current state
+      function saveCurrentState() {
+        if (user) {
+          localStorage.setItem(STORAGE_KEYS.USER_ADDRESS, user);
+          localStorage.setItem(STORAGE_KEYS.HAS_JOINED_MINING, hasJoinedMining.toString());
+          localStorage.setItem(STORAGE_KEYS.HAS_STAKED_TOKENS, hasStakedTokens.toString());
+        }
+      }
+      
+      // Reset UI to default state
+      function resetUIToSafeDefaults() {
+        document.getElementById('stakingInfo').innerText = `Your Stake: 0 MINE`;
+        document.getElementById('hashrateInfo').innerText = `Hashrate: 0 H/s`;
+        document.getElementById('pendingInfo').innerText = `Pending Rewards: 0 MINE`;
+        document.getElementById('totalRewards').innerText = `Total Earned: 0 MINE`;
+        document.getElementById('globalInfo').innerText = `Global Hashrate: 0 H/s`;
+        document.getElementById('hourlyInfo').innerText = `Reward per Block: 0 MINE`;
+        document.getElementById('mineBalance').innerText = `0 MINE`;
+        document.getElementById('walletInfo').style.display = 'none';
+        
+        safeValues.stake = "0";
+        safeValues.pendingReward = "0";
+        safeValues.hashrate = "0";
+        safeValues.totalEarned = "0";
+        safeValues.mineBalance = "0";
+        
+        isApprovedForAll = false;
+        hasStakedTokens = false;
+        hasJoinedMining = false;
+        
+        document.getElementById('joiningSection').style.display = 'block';
+        document.getElementById('minerPurchased').style.display = 'none';
+        
+        joinBtn.disabled = false;
+        joinBtn.innerText = '🚀 JOIN MINING (0.003 ETH)';
+        claimBtn.disabled = true;
+        
+        document.getElementById('minerAnimation').style.display = 'none';
+        document.getElementById('miningDisabled').style.display = 'none';
+        
+        document.getElementById('debugInfo').innerHTML = '';
+        
+        updateApproveStakeButtons();
+      }
+      
+      function debugLog(message, value = null) {
+        if (!DEBUG) return;
+        
+        const debugContainer = document.getElementById('debugInfo');
+        
+        let logMessage = `${message}`;
+        if (value !== null) {
+          logMessage += `: ${typeof value === 'object' ? JSON.stringify(value) : value}`;
+        }
+        
+        debugContainer.innerHTML += `<div>${logMessage}</div>`;
+        console.log(logMessage);
+      }
+      
+      // Automatically try to connect wallet at startup
+      tryAutoConnect();
+      
+      // Function to automatically connect wallet
+      async function tryAutoConnect() {
+        if (isFarcasterFrame && sdk?.wallet?.ethProvider) {
+          // Farcaster Frame auto-connect
+          document.getElementById('autoConnecting').style.display = 'block';
+          await connect(true);
+        } else if (window.ethereum) {
+          // Regular browser auto-connect
+          document.getElementById('autoConnecting').style.display = 'block';
+          
+          try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts && accounts.length > 0) {
+              debugLog("Auto-connecting wallet...");
+              await connect(true);
+            } else {
+              document.getElementById('autoConnecting').style.display = 'none';
+            }
+          } catch (error) {
+            console.error("Auto-connect error:", error);
+            document.getElementById('autoConnecting').style.display = 'none';
+          }
+        }
+      }
+      
+      async function connect(isAuto = false) {
+        try {
+          resetUIToSafeDefaults();
+          debugLog("UI reset");
+          
+          // Check for Farcaster wallet first
+          if (isFarcasterFrame && sdk?.wallet?.ethProvider) {
+            provider = new ethers.providers.Web3Provider(sdk.wallet.ethProvider);
+            signer = provider.getSigner();
+            user = await signer.getAddress();
+            
+            document.getElementById("wallet").innerText = `CONNECTED: ${user.slice(0,6)}...${user.slice(-4)}`;
+            document.getElementById('autoConnecting').style.display = 'none';
+            debugLog("Farcaster wallet connected", user);
+            
+          } else if (window.ethereum) {
+            // Regular browser wallet
+            let accounts;
+            
+            if (isAuto) {
+              accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            } else {
+              accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            }
+            
+            if (accounts.length === 0) {
+              document.getElementById('autoConnecting').style.display = 'none';
+              if (!isAuto) alert('Please select an account in your wallet.');
+              return;
+            }
+            
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
+            user = accounts[0];
+            
+            document.getElementById("wallet").innerText = `CONNECTED: ${user.slice(0,6)}...${user.slice(-4)}`;
+            document.getElementById('autoConnecting').style.display = 'none';
+            debugLog("Wallet connected", user);
+            
+          } else {
+            document.getElementById('autoConnecting').style.display = 'none';
+            alert('Please install MetaMask or use Warpcast!');
+            return;
+          }
+          
+          // Create contracts
+          miningPool = new ethers.Contract(miningPoolAddress, miningPoolABI, signer);
+          mineToken = new ethers.Contract(mineTokenAddress, mineTokenABI, signer);
+          debugLog("Contracts created");
+          
+          // Check if user is already mining
+          await checkMiningStatus();
+          
+          // Get MINE token balance
+          await updateMineBalance();
+          
+          // Check approval status and load data
+          await checkApprovalStatus();
+          await loadStats();
+          await loadLeaderboard();
+          
+          // Hide connect button after successful connection
+          connectBtn.style.display = 'none';
+          
+          // First connection is complete
+          isInitialConnect = false;
+          
+        } catch (e) {
+          document.getElementById('autoConnecting').style.display = 'none';
+          debugLog("Connection error", e.message);
+          if (!isAuto) alert('Connection error: ' + e.message);
+        }
+      }
+      
+      async function checkMiningStatus() {
+        if (!miningPool || !user) return false;
+        
+        try {
+          const isMiningResult = await miningPool.isMining(user);
+          hasJoinedMining = isMiningResult;
+          
+          debugLog("isMining check:", hasJoinedMining);
+          
+          if (hasJoinedMining) {
+            document.getElementById('joiningSection').style.display = 'none';
+            document.getElementById('minerPurchased').style.display = 'flex';
+          } else {
+            document.getElementById('joiningSection').style.display = 'block';
+            document.getElementById('minerPurchased').style.display = 'none';
+          }
+          
+          saveCurrentState();
+          
+          return hasJoinedMining;
+        } catch (e) {
+          debugLog("Failed to check mining status", e.message);
+          return false;
+        }
+      }
+      
+      async function updateMineBalance() {
+        if (!user || !mineToken) return;
+        
+        try {
+          const balance = await mineToken.balanceOf(user);
+          safeValues.mineBalance = ethers.utils.formatUnits(balance, 18);
+          
+          document.getElementById('mineBalance').innerText = `${parseFloat(safeValues.mineBalance).toFixed(2)} MINE`;
+          document.getElementById('walletInfo').style.display = 'flex';
+          
+          debugLog("Updated MINE balance", safeValues.mineBalance);
+        } catch (e) {
+          debugLog("Failed to get MINE balance", e.message);
+        }
+      }
+
+      async function checkApprovalStatus() {
+        try {
+          if (!user || !mineToken) return;
+          
+          const allowance = await mineToken.allowance(user, miningPoolAddress);
+          debugLog("Allowance value", ethers.utils.formatUnits(allowance, 18));
+          
+          isApprovedForAll = allowance.gt(ethers.utils.parseUnits("1000000", 18));
+          
+          updateApproveStakeButtons();
+        } catch (e) {
+          debugLog("Allowance check error", e.message);
+          isApprovedForAll = false;
+          updateApproveStakeButtons();
+        }
+      }
+
+      function updateApproveStakeButtons() {
+        if (isApprovedForAll) {
+          approveBtn.style.display = 'none';
+          stakeBtn.style.display = 'block';
+        } else {
+          approveBtn.style.display = 'block';
+          stakeBtn.style.display = 'none';
+        }
+      }
+
+      async function approveMINE() {
+        approveBtn.disabled = true;
+        approveBtn.innerText = '⏳ APPROVING...';
+        
+        try {
+          const maxUint256 = ethers.constants.MaxUint256;
+          debugLog("Approve: Giving unlimited approval");
+          
+          const approveTx = await mineToken.approve(miningPoolAddress, maxUint256);
+          await approveTx.wait();
+          
+          approveBtn.innerText = '✅ APPROVED!';
+          isApprovedForAll = true;
+          
+          setTimeout(() => {
+            updateApproveStakeButtons();
+          }, 1500);
+        } catch (e) {
+          debugLog("Approve error", e.message);
+          alert('Approval failed: ' + e.message);
+          approveBtn.innerText = '📑 APPROVE MINE';
+        } finally {
+          approveBtn.disabled = false;
+        }
+      }
+
+      async function stakeMINE() {
+        const amt = document.getElementById('stakeAmount').value;
+        if (!amt || parseFloat(amt) <= 0) {
+          alert('Please enter a valid amount.');
+          return;
+        }
+
+        if (parseFloat(amt) > parseFloat(safeValues.mineBalance)) {
+          alert('You don\'t have enough MINE tokens.');
+          return;
+        }
+
+        const weiAmount = ethers.utils.parseUnits(amt, 18);
+        stakeBtn.disabled = true;
+        stakeBtn.innerText = '⏳ STAKING...';
+        
+        try {
+          debugLog("Stake: Staking tokens", amt);
+          const stakeTx = await miningPool.stakeMINE(weiAmount);
+          await stakeTx.wait();
+          
+          document.getElementById('stakeAmount').value = '';
+          
+          await loadStats();
+          await updateMineBalance();
+          await loadLeaderboard();
+          
+          stakeBtn.innerText = '✅ STAKED!';
+          
+          updateMiningStatus();
+          saveCurrentState();
+          
+          setTimeout(() => {
+            stakeBtn.innerText = '📥 STAKE';
+            stakeBtn.disabled = false;
+          }, 2000);
+        } catch (e) {
+          debugLog("Stake error", e.message);
+          alert('Stake failed: ' + e.message);
+          stakeBtn.innerText = '📥 STAKE';
+          stakeBtn.disabled = false;
+        }
+      }
+      
+      function updateMiningStatus() {
+        if (hasJoinedMining) {
+          document.getElementById('minerAnimation').style.display = 'block';
+          
+          if (hasStakedTokens) {
+            document.getElementById('miningDisabled').style.display = 'none';
+            startMinerQuotes();
+          } else {
+            document.getElementById('miningDisabled').style.display = 'block';
+          }
+        } else {
+          document.getElementById('minerAnimation').style.display = 'none';
+        }
+      }
+
+      async function joinMining() {
+        joinBtn.disabled = true;
+        joinBtn.innerText = '⏳ JOINING...';
+        
+        try {
+          debugLog("Join: Joining mining");
+          const tx = await miningPool.joinMining({ value: ethers.utils.parseEther('0.003') });
+          await tx.wait();
+          
+          hasJoinedMining = true;
+          
+          document.getElementById('joiningSection').style.display = 'none';
+          document.getElementById('minerPurchased').style.display = 'flex';
+          
+          await loadStats();
+          await loadLeaderboard();
+          
+          updateMiningStatus();
+          saveCurrentState();
+        } catch (e) {
+          debugLog("Join error", e.message);
+          alert('Transaction failed: ' + e.message);
+          joinBtn.disabled = false;
+          joinBtn.innerText = '🚀 JOIN MINING (0.003 ETH)';
+        }
+      }
+
+      async function unstakeMINE() {
+        const amt = document.getElementById('unstakeAmount').value;
+        if (!amt || parseFloat(amt) <= 0) {
+          alert('Please enter a valid amount.');
+          return;
+        }
+
+        if (parseFloat(amt) > parseFloat(safeValues.stake)) {
+          alert('You cannot unstake more tokens than you have.');
+          return;
+        }
+
+        const w = ethers.utils.parseUnits(amt, 18);
+        unstakeBtn.disabled = true;
+        unstakeBtn.innerText = '⏳ UNSTAKING...';
+        
+        try {
+          debugLog("Unstake: Unstaking tokens", amt);
+          const tx = await miningPool.instantUnstake(w);
+          await tx.wait();
+          
+          document.getElementById('unstakeAmount').value = '';
+          
+          await loadStats();
+          await updateMineBalance();
+          await loadLeaderboard();
+          
+          updateMiningStatus();
+          saveCurrentState();
+          
+          unstakeBtn.innerText = '✅ UNSTAKED!';
+          
+          setTimeout(() => {
+            unstakeBtn.innerText = '🔥 UNSTAKE';
+            unstakeBtn.disabled = false;
+          }, 2000);
+        } catch (e) {
+          debugLog("Unstake error", e.message);
+          alert('Transaction failed: ' + e.message);
+          unstakeBtn.innerText = '🔥 UNSTAKE';
+          unstakeBtn.disabled = false;
+        }
+      }
+
+      async function claimRewards() {
+        if (!hasStakedTokens || parseFloat(safeValues.pendingReward) <= 0) {
+          alert('No rewards to claim or you have not staked.');
+          return;
+        }
+        
+        claimBtn.disabled = true;
+        claimBtn.innerText = '⏳ CLAIMING...';
+        
+        try {
+          debugLog("Claim: Claiming rewards", safeValues.pendingReward);
+          const tx = await miningPool.claimRewards();
+          await tx.wait();
+          
+          await loadStats();
+          await updateMineBalance();
+          
+          claimBtn.innerText = '✅ CLAIMED!';
+          
+          setTimeout(() => {
+            claimBtn.innerText = '💰 CLAIM REWARDS';
+            claimBtn.disabled = !hasStakedTokens || parseFloat(safeValues.pendingReward) <= 0;
+          }, 2000);
+        } catch (e) {
+          debugLog("Claim error", e.message);
+          alert('Transaction failed: ' + e.message);
+          claimBtn.innerText = '💰 CLAIM REWARDS';
+          claimBtn.disabled = !hasStakedTokens || parseFloat(safeValues.pendingReward) <= 0;
+        }
+      }
+
+      async function loadStats() {
+        try {
+          if (!user || !miningPool) {
+            debugLog("loadStats: No contract or user, using default values");
+            return false;
+          }
+          
+          debugLog("loadStats: Getting hashrate from contract");
+          
+          try {
+            const stakeValue = await miningPool.getHashrate(user);
+            
+            if (typeof stakeValue === 'object' && typeof stakeValue.toString === 'function') {
+              const stakeStr = stakeValue.toString();
+              
+              if (stakeStr && stakeStr !== '0' && !stakeStr.includes('Infinity')) {
+                safeValues.stake = ethers.utils.formatUnits(stakeValue, 18);
+                safeValues.hashrate = safeValues.stake;
+                hasStakedTokens = true;
+              } else {
+                safeValues.stake = "0";
+                safeValues.hashrate = "0";
+                hasStakedTokens = false;
+              }
+            } else {
+              safeValues.stake = "0";
+              safeValues.hashrate = "0";
+              hasStakedTokens = false;
+            }
+          } catch (e) {
+            debugLog("getHashrate error", e.message);
+            safeValues.stake = "0";
+            safeValues.hashrate = "0";
+            hasStakedTokens = false;
+          }
+          
+          debugLog("Stake: " + safeValues.stake + ", hasStakedTokens: " + hasStakedTokens);
+          
+          try {
+            const pendingValue = await miningPool.getPendingReward(user);
+            
+            if (typeof pendingValue === 'object' && typeof pendingValue.toString === 'function') {
+              const pendingStr = pendingValue.toString();
+              
+              if (!hasStakedTokens) {
+                safeValues.pendingReward = "0";
+                safeValues.totalEarned = "0";
+              } 
+              else if (pendingStr && pendingStr !== '0' && !pendingStr.includes('Infinity')) {
+                safeValues.pendingReward = ethers.utils.formatUnits(pendingValue, 18);
+                safeValues.totalEarned = safeValues.pendingReward;
+              }
+            } else {
+              safeValues.pendingReward = "0";
+              safeValues.totalEarned = "0";
+            }
+          } catch (e) {
+            debugLog("getPendingReward error", e.message);
+            safeValues.pendingReward = "0";
+            safeValues.totalEarned = "0";
+          }
+          
+          debugLog("Pending: " + safeValues.pendingReward);
+          
+          let globalHashrateStr = "0";
+          let rewardPerBlockStr = "0";
+          
+          try {
+            const g = await miningPool.getGlobalHashrate();
+            if (g && typeof g.toString === 'function') {
+              globalHashrateStr = ethers.utils.formatUnits(g, 18);
+            }
+          } catch (e) {
+            debugLog("getGlobalHashrate error", e.message);
+          }
+          
+          try {
+            const r = await miningPool.getRewardPerBlock();
+            if (r && typeof r.toString === 'function') {
+              rewardPerBlockStr = ethers.utils.formatUnits(r, 18);
+            }
+          } catch (e) {
+            debugLog("getRewardPerBlock error", e.message);
+          }
+          
+          document.getElementById('stakingInfo').innerText = `Your Stake: ${parseFloat(safeValues.stake).toFixed(2)} MINE`;
+          document.getElementById('hashrateInfo').innerText = `Hashrate: ${parseFloat(safeValues.hashrate).toFixed(2)} H/s`;
+          document.getElementById('pendingInfo').innerText = `Pending Rewards: ${parseFloat(safeValues.pendingReward).toFixed(4)} MINE`;
+          document.getElementById('totalRewards').innerText = `Total Earned: ${parseFloat(safeValues.totalEarned).toFixed(4)} MINE`;
+          document.getElementById('globalInfo').innerText = `Global Hashrate: ${parseFloat(globalHashrateStr).toFixed(2)} H/s`;
+          document.getElementById('hourlyInfo').innerText = `Reward per Block: ${parseFloat(rewardPerBlockStr).toFixed(4)} MINE`;
+          
+          claimBtn.disabled = !hasStakedTokens || parseFloat(safeValues.pendingReward) <= 0;
+          
+          updateMiningStatus();
+          saveCurrentState();
+          
+          return hasStakedTokens;
+        } catch (e) {
+          debugLog("loadStats main function error", e.message);
+          return false;
+        }
+      }
+
+      async function loadLeaderboard() {
+        try {
+          if (!miningPool) {
+            debugLog("loadLeaderboard: No contract");
+            return;
+          }
+          
+          try {
+            debugLog("Loading leaderboard");
+            const [addrs, pts] = await miningPool.getMinerStats();
+            const body = document.getElementById('leaderboardBody');
+            body.innerHTML = '';
+
+            if (!Array.isArray(addrs) || !Array.isArray(pts) || addrs.length !== pts.length) {
+              debugLog("Invalid leaderboard data");
+              return;
+            }
+
+            const miners = addrs.map((addr, i) => {
+              try {
+                return {
+                  address: addr,
+                  hashrate: parseFloat(ethers.utils.formatUnits(pts[i], 18))
+                };
+              } catch (e) {
+                return { address: addr, hashrate: 0 };
+              }
+            });
+
+            miners.sort((a, b) => b.hashrate - a.hashrate);
+
+            miners.forEach(miner => {
+              if (miner.hashrate === 0) return;
+
+              const tr = document.createElement('tr');
+              if (miner.address.toLowerCase() === user?.toLowerCase()) {
+                tr.style.fontWeight = "bold";
+                tr.style.color = "#ffae00";
+              }
+
+              const addrCell = document.createElement('td');
+              addrCell.innerText = `${miner.address.slice(0, 6)}...${miner.address.slice(-4)}`;
+              
+              const valCell = document.createElement('td');
+              valCell.innerText = miner.hashrate.toFixed(2);
+              
+              tr.append(addrCell, valCell);
+              body.appendChild(tr);
+            });
+          } catch (e) {
+            debugLog("getMinerStats error", e.message);
+          }
+        } catch (e) {
+          debugLog("loadLeaderboard main function error", e.message);
+        }
+      }
+      
+      const minerQuotes = [
+        "These rocks are endless, bro...",
+        "Mining all day, still broke.",
+        "+0.25 MINE? I'll retire in 2087.",
+        "Even Elon doesn't mine this hard.",
+        "Is this Bitcoin yet? No? Ok...",
+        "Hashrate: not enough.",
+        "Bro I'm digging to China.",
+        "Gas fees? I'm using a spoon.",
+        "Found a left shoe. Just one.",
+        "This ain't even gold..."
+      ];
+
+      function startMinerQuotes() {
+        const quoteBox = document.getElementById("minerQuote");
+        if (window.quoteInterval) {
+          clearInterval(window.quoteInterval);
+        }
+        
+        window.quoteInterval = setInterval(() => {
+          const random = minerQuotes[Math.floor(Math.random() * minerQuotes.length)];
+          quoteBox.innerText = random;
+        }, 5000);
+        
+        quoteBox.innerText = minerQuotes[Math.floor(Math.random() * minerQuotes.length)];
+      }
+      
+      // Listen for wallet changes
+      if (window.ethereum) {
+        window.ethereum.on('accountsChanged', function (accounts) {
+          if (accounts.length > 0) {
+            connect(true);
+          } else {
+            document.getElementById("wallet").innerText = 'NOT CONNECTED';
+            document.getElementById('walletInfo').style.display = 'none';
+            document.getElementById('connectBtn').style.display = 'block';
+            resetUIToSafeDefaults();
+          }
+        });
+        
+        window.ethereum.on('chainChanged', function () {
+          window.location.reload();
+        });
+      }
+    });
+  </script>
+</body>
+</html>
