@@ -1,0 +1,22 @@
+{
+  "version": "1",
+  "name": "Block Digger",
+  "iconUrl": "https://block-digger.vercel.app/pickaxe-icon.png",
+  "homeUrl": "https://block-digger.vercel.app/block-digger",
+  "imageUrl": "https://block-digger.vercel.app/block-digger-preview.png",
+  "buttonTitle": "⛏️ Start Mining",
+  "splashImageUrl": "https://block-digger.vercel.app/block-digger-splash.png",
+  "splashBackgroundColor": "#181425",
+  "description": "Retro-style blockchain mining game on Base. Stake MINE tokens to earn rewards!",
+  "longDescription": "Block Digger is a pixelated mining game where you buy a miner for 0.003 ETH, stake MINE tokens to increase your hashrate, and compete on the leaderboard. Unstake anytime with a 20% burn fee. Join the mining revolution!",
+  "categories": ["games", "defi"],
+  "screenshots": [
+    "https://block-digger.vercel.app/screenshot1.png",
+    "https://block-digger.vercel.app/screenshot2.png"
+  ],
+  "socialLinks": {
+    "twitter": "https://x.com/blockdigger",
+    "telegram": "https://t.me/blockdigger",
+    "farcaster": "https://warpcast.com/~/channel/blockdigger"
+  }
+}
