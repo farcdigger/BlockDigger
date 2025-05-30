@@ -1,9 +1,4 @@
 {
-  "accountAssociation": {
-    "header": "BASE64_HEADER_STRING",
-    "payload": "BASE64_PAYLOAD_STRING",
-    "signature": "BASE64_SIGNATURE_STRING"
-  },
   "frame": {
     "version": "1",
     "name": "Block Digger",
@@ -14,13 +9,12 @@
     "subtitle": "Retro Mining Game",
     "description": "Stake MINE tokens to earn rewards!",
     "screenshotUrls": [
-      "https://block-digger.vercel.app/screenshot1.png",
-      "https://block-digger.vercel.app/screenshot2.png"
+      "https://block-digger.vercel.app/screenshot1.png"
     ],
     "primaryCategory": "games",
-    "tags": ["blockchain", "mining", "game"],
-    "ogTitle": "Play Block Digger!",
-    "ogDescription": "Mine tokens on Farcaster with Block Digger.",
+    "tags": ["mining", "game", "onchain"],
+    "ogTitle": "Block Digger - Play to Earn",
+    "ogDescription": "Retro onchain mining game with MINE token rewards.",
     "ogImageUrl": "https://block-digger.vercel.app/block-digger-preview.png"
   }
 }
