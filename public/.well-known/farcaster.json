@@ -2,7 +2,7 @@
   "frame": {
     "version": "1",
     "name": "Block Digger",
-    "iconUrl": "https://block-digger.vercel.app/pickaxe-icon.png",
+    "iconUrl": "https://block-digger.vercel.app/.well-known/Block.png",
     "homeUrl": "https://block-digger.vercel.app/block-digger",
     "splashImageUrl": "https://block-digger.vercel.app/block-digger-splash.png",
     "splashBackgroundColor": "#181425",
