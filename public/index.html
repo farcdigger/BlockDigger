@@ -877,7 +877,10 @@
         
         try {
           debugLog("Stake: Staking tokens", amt);
-          const stakeTx = await miningPool.stakeMINE(weiAmount);
+          const stakeTx = await miningPool.stakeMINE(weiAmount, {
+  gasLimit: 300000
+});
+
           await stakeTx.wait();
           
           document.getElementById('stakeAmount').value = '';
@@ -924,7 +927,11 @@
         
         try {
           debugLog("Join: Joining mining");
-          const tx = await miningPool.joinMining({ value: ethers.utils.parseEther('0.003') });
+          const tx = await miningPool.joinMining({
+  value: ethers.utils.parseEther('0.003'),
+  gasLimit: 100000
+});
+
           await tx.wait();
           
           hasJoinedMining = true;
@@ -1000,7 +1007,10 @@
         
         try {
           debugLog("Claim: Claiming rewards", safeValues.pendingReward);
-          const tx = await miningPool.claimRewards();
+          const tx = await miningPool.claimRewards({
+  gasLimit: 200000
+});
+
           await tx.wait();
           
           await loadStats();
