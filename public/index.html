@@ -340,6 +340,60 @@
       background: #7C3AED;
     }
     
+    /* Buy Token Section */
+    .buy-token-section {
+      display: none;
+      background: rgba(255, 174, 0, 0.1);
+      border: 2px solid #ffae00;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      text-align: center;
+    }
+    
+    .buy-token-section p {
+      font-size: 0.6rem;
+      margin-bottom: 1rem;
+      color: #ffae00;
+      line-height: 1.4;
+    }
+    
+    .buy-token-button {
+      background: #00d632;
+      color: white;
+      font-size: 0.7rem;
+      padding: 10px 20px;
+    }
+    
+    .buy-token-button:hover {
+      background: #00a928;
+    }
+    
+    .token-links {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .token-link {
+      background: #1f1a2e;
+      color: #29adff;
+      font-size: 0.6rem;
+      padding: 8px 16px;
+      text-decoration: none;
+      border: 2px solid #29adff;
+      border-radius: 4px;
+      display: inline-block;
+      transition: all 0.2s;
+    }
+    
+    .token-link:hover {
+      background: #29adff;
+      color: #181425;
+      transform: translateY(-2px);
+    }
+    
     /* Mobile Optimizations */
     @media (max-width: 600px) {
       h1 {
@@ -373,15 +427,6 @@
     </div>
   </header>
 
-  <!-- ... existing game cards ... -->
-
-  <div id="buyMineContainer">
-    <p>You joined mining but haven't staked MINE tokens yet.</p>
-    <a href="https://app.uniswap.org/#/swap?outputCurrency=0xeb84c09ff4fb15094ad56c1cc994e9bec28347c1&chain=base" target="_blank">
-      <button>🪙 Buy MINE on Uniswap</button>
-    </a>
-  </div>
-
   <div class="social-links">
     <a href="https://x.com/blockdigger" target="_blank">
       <img src="https://cdn-icons-png.flaticon.com/512/5968/5968958.png" alt="X" />
@@ -408,6 +453,19 @@
       <div class="miner-purchased" id="minerPurchased" style="display:none">
         <span class="miner-purchased-icon">✅</span>
         <span>You already own a miner</span>
+      </div>
+      
+      <!-- Buy Token Section -->
+      <div class="buy-token-section" id="buyTokenSection">
+        <p>🚨 You need MINE tokens to start mining!</p>
+        <div class="token-links">
+          <button class="buy-token-button" onclick="buyOnUniswap()">🦄 Buy on Uniswap</button>
+          <a href="https://warpcast.com/~/compose?text=I%20need%20%24MINE%20tokens%20to%20start%20mining%20in%20Block%20Digger!%20%F0%9F%92%B0%0A%0AWhere%20can%20I%20buy%20some%3F%20%40blockdigger" 
+             target="_blank" 
+             class="token-link">
+            🟣 Ask on Farcaster
+          </a>
+        </div>
       </div>
       
       <div id="minerAnimation">
@@ -490,6 +548,22 @@
         return false;
       }
     }
+    
+    // Buy on Uniswap function
+    window.buyOnUniswap = async function() {
+      const uniswapUrl = 'https://app.uniswap.org/#/swap?outputCurrency=0xa9ae3a7f3837fbbe9c985b0e46b4a657cc2de641&chain=base';
+      
+      if (isFarcasterFrame && sdk) {
+        try {
+          await sdk.actions.openUrl(uniswapUrl);
+        } catch (error) {
+          console.error('Failed to open Uniswap:', error);
+          window.open(uniswapUrl, '_blank');
+        }
+      } else {
+        window.open(uniswapUrl, '_blank');
+      }
+    };
     
     // Share on Farcaster function
     window.shareOnFarcaster = async function() {
@@ -644,6 +718,7 @@
         
         document.getElementById('joiningSection').style.display = 'block';
         document.getElementById('minerPurchased').style.display = 'none';
+        document.getElementById('buyTokenSection').style.display = 'none';
         
         joinBtn.disabled = false;
         joinBtn.innerText = '🚀 JOIN MINING (0.003 ETH)';
@@ -669,6 +744,15 @@
         
         debugContainer.innerHTML += `<div>${logMessage}</div>`;
         console.log(logMessage);
+      }
+      
+      // Check if user needs to buy tokens
+      function checkAndShowBuyTokenSection() {
+        if (hasJoinedMining && parseFloat(safeValues.mineBalance) === 0) {
+          document.getElementById('buyTokenSection').style.display = 'block';
+        } else {
+          document.getElementById('buyTokenSection').style.display = 'none';
+        }
       }
       
       // Automatically try to connect wallet at startup
@@ -755,6 +839,9 @@
           // Get MINE token balance
           await updateMineBalance();
           
+          // Check if user needs to buy tokens
+          checkAndShowBuyTokenSection();
+          
           // Check approval status and load data
           await checkApprovalStatus();
           await loadStats();
@@ -810,6 +897,9 @@
           document.getElementById('walletInfo').style.display = 'flex';
           
           debugLog("Updated MINE balance", safeValues.mineBalance);
+          
+          // Check if user needs to buy tokens after balance update
+          checkAndShowBuyTokenSection();
         } catch (e) {
           debugLog("Failed to get MINE balance", e.message);
         }
@@ -887,8 +977,8 @@
         try {
           debugLog("Stake: Staking tokens", amt);
           const stakeTx = await miningPool.stakeMINE(weiAmount, {
-  gasLimit: 300000
-});
+            gasLimit: 300000
+          });
 
           await stakeTx.wait();
           
@@ -921,9 +1011,11 @@
           
           if (hasStakedTokens) {
             document.getElementById('miningDisabled').style.display = 'none';
+            document.getElementById('buyTokenSection').style.display = 'none';
             startMinerQuotes();
           } else {
             document.getElementById('miningDisabled').style.display = 'block';
+            checkAndShowBuyTokenSection();
           }
         } else {
           document.getElementById('minerAnimation').style.display = 'none';
@@ -937,9 +1029,9 @@
         try {
           debugLog("Join: Joining mining");
           const tx = await miningPool.joinMining({
-  value: ethers.utils.parseEther('0.003'),
-  gasLimit: 100000
-});
+            value: ethers.utils.parseEther('0.003'),
+            gasLimit: 100000
+          });
 
           await tx.wait();
           
@@ -953,6 +1045,9 @@
           
           updateMiningStatus();
           saveCurrentState();
+          
+          // Check if user needs to buy tokens after joining
+          await updateMineBalance();
         } catch (e) {
           debugLog("Join error", e.message);
           alert('Transaction failed: ' + e.message);
@@ -1017,8 +1112,8 @@
         try {
           debugLog("Claim: Claiming rewards", safeValues.pendingReward);
           const tx = await miningPool.claimRewards({
-  gasLimit: 200000
-});
+            gasLimit: 200000
+          });
 
           await tx.wait();
           
