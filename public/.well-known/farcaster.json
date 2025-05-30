@@ -12,9 +12,9 @@
       "https://block-digger.vercel.app/screenshot1.png"
     ],
     "primaryCategory": "games",
-    "tags": ["mining", "game", "onchain"],
+    "tags": ["mining", "blockchain", "onchain"],
     "ogTitle": "Block Digger - Play to Earn",
-    "ogDescription": "Retro onchain mining game with MINE token rewards.",
+    "ogDescription": "Mine tokens in a retro onchain world.",
     "ogImageUrl": "https://block-digger.vercel.app/block-digger-preview.png"
   }
 }
