@@ -233,7 +233,7 @@
     }
 
     #debugInfo {
-      display: none;
+      display: block;
       font-size: 0.5rem;
       margin-top: 1rem;
       padding: 0.5rem;
@@ -586,7 +586,12 @@
         // Check if we're in a Farcaster context
         const inFarcasterContext = window.location.hostname.includes('farcaster') || 
                                   window.location.hostname.includes('warpcast') ||
-                                  window.parent !== window;
+                                  (window.parent !== window && (
+                                    window.location.href.includes('farcaster') || 
+                                    window.location.href.includes('warpcast') ||
+                                    document.referrer.includes('farcaster') ||
+                                    document.referrer.includes('warpcast')
+                                  ));
         
         console.log('Environment check:', { isMobile, isWarpcast, inFarcasterContext, hostname: window.location.hostname, userAgent: navigator.userAgent });
         
@@ -633,13 +638,29 @@
       let detectedWallets = [];
       let buttonText = '';
       
-      // Detect available wallets
-      if (window.ethereum) {
-        if (window.ethereum.isMetaMask) detectedWallets.push('MetaMask');
-        if (window.ethereum.isCoinbaseWallet) detectedWallets.push('Coinbase');
-        if (window.ethereum.isRabby) detectedWallets.push('Rabby');
-        if (window.ethereum.isBraveWallet) detectedWallets.push('Brave');
-        if (window.ethereum.isWalletConnect) detectedWallets.push('WalletConnect');
+      // Detect available wallets using robust detection
+      const ethProvider = getEthereumProvider();
+      if (ethProvider) {
+        // Check for multiple providers first
+        if (window.ethereum && window.ethereum.providers && Array.isArray(window.ethereum.providers)) {
+          window.ethereum.providers.forEach(provider => {
+            if (provider.isMetaMask) detectedWallets.push('MetaMask');
+            if (provider.isCoinbaseWallet) detectedWallets.push('Coinbase');
+            if (provider.isRabby) detectedWallets.push('Rabby');
+            if (provider.isBraveWallet) detectedWallets.push('Brave');
+            if (provider.isWalletConnect) detectedWallets.push('WalletConnect');
+          });
+        } else {
+          // Single provider detection
+          if (ethProvider.isMetaMask) detectedWallets.push('MetaMask');
+          if (ethProvider.isCoinbaseWallet) detectedWallets.push('Coinbase');
+          if (ethProvider.isRabby) detectedWallets.push('Rabby');
+          if (ethProvider.isBraveWallet) detectedWallets.push('Brave');
+          if (ethProvider.isWalletConnect) detectedWallets.push('WalletConnect');
+        }
+        
+        // Remove duplicates
+        detectedWallets = [...new Set(detectedWallets)];
         
         // If no specific wallet detected but ethereum exists
         if (detectedWallets.length === 0) {
@@ -829,6 +850,48 @@
       }
     }
     
+    // Robust ethereum provider detection
+    function getEthereumProvider() {
+      // Priority order for multiple wallet support
+      if (window.ethereum) {
+        // If multiple providers exist, try to get the best one
+        if (window.ethereum.providers && Array.isArray(window.ethereum.providers)) {
+          debugLog("Multiple providers detected", window.ethereum.providers.length);
+          
+          // Prefer MetaMask if available
+          const metamask = window.ethereum.providers.find(p => p.isMetaMask);
+          if (metamask) {
+            debugLog("Using MetaMask provider");
+            return metamask;
+          }
+          
+          // Prefer Coinbase if available
+          const coinbase = window.ethereum.providers.find(p => p.isCoinbaseWallet);
+          if (coinbase) {
+            debugLog("Using Coinbase provider");
+            return coinbase;
+          }
+          
+          // Use first available provider
+          debugLog("Using first available provider");
+          return window.ethereum.providers[0];
+        }
+        
+        // Single provider
+        debugLog("Single ethereum provider detected");
+        return window.ethereum;
+      }
+      
+      // Check for specific wallet providers as fallback
+      if (window.web3 && window.web3.currentProvider) {
+        debugLog("Using web3 current provider");
+        return window.web3.currentProvider;
+      }
+      
+      debugLog("No ethereum provider found");
+      return null;
+    }
+    
     // Buy on Uniswap function
     window.buyOnUniswap = async function() {
       const uniswapUrl = 'https://app.uniswap.org/#/swap?outputCurrency=0xa9ae3a7f3837fbbe9c985b0e46b4a657cc2de641&chain=base';
@@ -920,7 +983,7 @@
       let isInitialConnect = true;
       
       // Debug mode - enable for troubleshooting
-      const DEBUG = false;
+      const DEBUG = true;
       
       // Safe values
       const safeValues = {
@@ -1070,13 +1133,15 @@
           await connect(true);
           
         // Priority 2: Regular browser wallets  
-        } else if (window.ethereum) {
-          debugLog("Web wallet detected, attempting auto-connect");
+        } else {
+          const ethProvider = getEthereumProvider();
+          if (ethProvider) {
+            debugLog("Web wallet detected, attempting auto-connect");
           document.getElementById('autoConnecting').style.display = 'block';
           
           try {
-            // Check if already connected
-            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+              // Check if already connected
+              const accounts = await ethProvider.request({ method: 'eth_accounts' });
             if (accounts && accounts.length > 0) {
               debugLog("Auto-connecting web wallet", `Found ${accounts.length} accounts`);
               if (isMobile) {
@@ -1114,17 +1179,18 @@
           
         // No wallet available
         } else {
-          debugLog("No wallet detected");
-          if (isMobile) {
-            console.log('📱 No wallet detected on mobile. Please use Warpcast or install a mobile wallet.');
-          } else {
-            console.log('🔌 No wallet detected. Please install MetaMask or similar.');
+            debugLog("No wallet detected");
+            if (isMobile) {
+              console.log('📱 No wallet detected on mobile. Please use Warpcast or install a mobile wallet.');
+            } else {
+              console.log('🔌 No wallet detected. Please install MetaMask or similar.');
+            }
+            
+            // Show wallet recommendations
+            setTimeout(() => {
+              updateWebWalletUI(isMobile);
+            }, 100);
           }
-          
-          // Show wallet recommendations
-          setTimeout(() => {
-            updateWebWalletUI(isMobile);
-          }, 100);
         }
       }
       
@@ -1143,7 +1209,7 @@
                 throw new Error("Farcaster wallet provider not ready");
               }
               
-              provider = new ethers.providers.Web3Provider(sdk.wallet.ethProvider);
+            provider = new ethers.providers.Web3Provider(sdk.wallet.ethProvider);
               
               // Get accounts first to ensure wallet is connected
               const accounts = await sdk.wallet.ethProvider.request({ method: 'eth_accounts' });
@@ -1159,12 +1225,12 @@
                 user = accounts[0];
               }
               
-              signer = provider.getSigner();
-              
+            signer = provider.getSigner();
+            
               document.getElementById("wallet").innerText = `🟣 FARCASTER: ${user.slice(0,6)}...${user.slice(-4)}`;
-              document.getElementById('autoConnecting').style.display = 'none';
-              debugLog("Farcaster wallet connected", user);
-              
+            document.getElementById('autoConnecting').style.display = 'none';
+            debugLog("Farcaster wallet connected", user);
+            
               // Show success message for mobile Farcaster
               if (isMobile) {
                 console.log("✅ Mobile Farcaster wallet connected successfully!");
@@ -1180,10 +1246,11 @@
               }
             }
             
-          } else if (window.ethereum) {
-            return await connectRegularWallet(isAuto, isMobile);
-            
           } else {
+            const ethProvider = getEthereumProvider();
+            if (ethProvider) {
+              return await connectRegularWallet(isAuto, isMobile);
+            } else {
             document.getElementById('autoConnecting').style.display = 'none';
             
             // Better UX: Show wallet installation options instead of just alert
@@ -1195,6 +1262,7 @@
               }
             }
             return;
+            }
           }
           
           // Common connection success logic
@@ -1217,21 +1285,24 @@
       // Helper function for regular wallet connection
       async function connectRegularWallet(isAuto, isMobile) {
         try {
-          // Check if window.ethereum is available and functional
-          if (!window.ethereum || !window.ethereum.request) {
+          // More robust ethereum provider detection
+          const provider = getEthereumProvider();
+          if (!provider) {
             throw new Error("No compatible wallet found");
           }
           
-          let accounts;
+          debugLog("Using ethereum provider", provider.constructor.name || 'Unknown');
           
-          if (isAuto) {
-            accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          } else {
-            accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          }
-          
+            let accounts;
+            
+            if (isAuto) {
+            accounts = await provider.request({ method: 'eth_accounts' });
+            } else {
+            accounts = await provider.request({ method: 'eth_requestAccounts' });
+            }
+            
           if (!accounts || accounts.length === 0) {
-            document.getElementById('autoConnecting').style.display = 'none';
+              document.getElementById('autoConnecting').style.display = 'none';
             if (!isAuto) {
               if (isMobile) {
                 alert('Please select an account in your mobile wallet.');
@@ -1239,23 +1310,23 @@
                 alert('Please select an account in your wallet.');
               }
             }
-            return;
-          }
-          
+              return;
+            }
+            
           // Check if we're on the correct network (Base)
-          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+          const chainId = await provider.request({ method: 'eth_chainId' });
           const baseChainId = '0x2105'; // Base mainnet chain ID
           
           if (chainId !== baseChainId) {
             try {
-              await window.ethereum.request({
+              await provider.request({
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: baseChainId }],
               });
             } catch (switchError) {
               // If Base network is not added, add it
               if (switchError.code === 4902) {
-                await window.ethereum.request({
+                await provider.request({
                   method: 'wallet_addEthereumChain',
                   params: [{
                     chainId: baseChainId,
@@ -1273,19 +1344,23 @@
             }
           }
           
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          signer = provider.getSigner();
-          user = accounts[0];
-          
-          // Detect wallet type
+          // Use the specific provider instead of window.ethereum
+          window.selectedEthereumProvider = provider;
+          provider = new ethers.providers.Web3Provider(provider);
+            signer = provider.getSigner();
+            user = accounts[0];
+            
+          // Detect wallet type from the selected provider
           let walletType = "WALLET";
-          if (window.ethereum.isMetaMask) walletType = "METAMASK";
-          else if (window.ethereum.isCoinbaseWallet) walletType = "COINBASE";
-          else if (window.ethereum.isWalletConnect) walletType = "WALLETCONNECT";
-          else if (window.ethereum.isRabby) walletType = "RABBY";
+          const selectedProvider = window.selectedEthereumProvider;
+          if (selectedProvider.isMetaMask) walletType = "METAMASK";
+          else if (selectedProvider.isCoinbaseWallet) walletType = "COINBASE";
+          else if (selectedProvider.isWalletConnect) walletType = "WALLETCONNECT";
+          else if (selectedProvider.isRabby) walletType = "RABBY";
+          else if (selectedProvider.isBraveWallet) walletType = "BRAVE";
           
           document.getElementById("wallet").innerText = `${walletType}: ${user.slice(0,6)}...${user.slice(-4)}`;
-          document.getElementById('autoConnecting').style.display = 'none';
+            document.getElementById('autoConnecting').style.display = 'none';
           debugLog(`${walletType} wallet connected`, user);
           
           if (isMobile) {
@@ -1294,7 +1369,7 @@
           
         } catch (error) {
           console.error("Regular wallet connection error:", error);
-          document.getElementById('autoConnecting').style.display = 'none';
+            document.getElementById('autoConnecting').style.display = 'none';
           
           if (!isAuto) {
             if (isMobile) {
@@ -1309,25 +1384,25 @@
       
       // Finalize connection process
       async function finalizeConnection() {
-        // Create contracts
-        miningPool = new ethers.Contract(miningPoolAddress, miningPoolABI, signer);
-        mineToken = new ethers.Contract(mineTokenAddress, mineTokenABI, signer);
-        debugLog("Contracts created");
-        
-        // Check if user is already mining
-        await checkMiningStatus();
-        
-        // Get MINE token balance
-        await updateMineBalance();
-        
-        // Check if user needs to buy tokens
-        checkAndShowBuyTokenSection();
-        
-        // Check approval status and load data
-        await checkApprovalStatus();
-        await loadStats();
-        await loadLeaderboard();
-        
+          // Create contracts
+          miningPool = new ethers.Contract(miningPoolAddress, miningPoolABI, signer);
+          mineToken = new ethers.Contract(mineTokenAddress, mineTokenABI, signer);
+          debugLog("Contracts created");
+          
+          // Check if user is already mining
+          await checkMiningStatus();
+          
+          // Get MINE token balance
+          await updateMineBalance();
+          
+          // Check if user needs to buy tokens
+          checkAndShowBuyTokenSection();
+          
+          // Check approval status and load data
+          await checkApprovalStatus();
+          await loadStats();
+          await loadLeaderboard();
+          
                   // Hide connect button and wallet recommendations after successful connection
           connectBtn.style.display = 'none';
           
@@ -1336,9 +1411,9 @@
           if (recommendations) {
             recommendations.remove();
           }
-        
-        // First connection is complete
-        isInitialConnect = false;
+          
+          // First connection is complete
+          isInitialConnect = false;
       }
       
       async function checkMiningStatus() {
