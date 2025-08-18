@@ -233,7 +233,7 @@
     }
 
     #debugInfo {
-      display: block;
+      display: none;
       font-size: 0.5rem;
       margin-top: 1rem;
       padding: 0.5rem;
@@ -614,13 +614,218 @@
         
         // Update UI for web browser
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        if (isMobile) {
-          document.getElementById('connectBtn').innerText = '📱 CONNECT MOBILE WALLET';
-        } else {
-          document.getElementById('connectBtn').innerText = '🔌 CONNECT WALLET';
-        }
+        
+        // Hide Farcaster badge on regular web
+        document.querySelector('.farcaster-badge').style.display = 'none';
+        
+        // Detect available wallets and update button accordingly
+        setTimeout(() => {
+          updateWebWalletUI(isMobile);
+        }, 100); // Small delay to let wallet extensions load
         
         return false;
+      }
+    }
+    
+    // Update web wallet UI based on available wallets
+    function updateWebWalletUI(isMobile) {
+      const connectBtn = document.getElementById('connectBtn');
+      let detectedWallets = [];
+      let buttonText = '';
+      
+      // Detect available wallets
+      if (window.ethereum) {
+        if (window.ethereum.isMetaMask) detectedWallets.push('MetaMask');
+        if (window.ethereum.isCoinbaseWallet) detectedWallets.push('Coinbase');
+        if (window.ethereum.isRabby) detectedWallets.push('Rabby');
+        if (window.ethereum.isBraveWallet) detectedWallets.push('Brave');
+        if (window.ethereum.isWalletConnect) detectedWallets.push('WalletConnect');
+        
+        // If no specific wallet detected but ethereum exists
+        if (detectedWallets.length === 0) {
+          detectedWallets.push('Web3 Wallet');
+        }
+      }
+      
+      // Update button text based on detected wallets
+      if (detectedWallets.length > 0) {
+        if (detectedWallets.length === 1) {
+          buttonText = `🔌 CONNECT ${detectedWallets[0].toUpperCase()}`;
+        } else if (detectedWallets.length === 2) {
+          buttonText = `🔌 CONNECT ${detectedWallets[0].toUpperCase()} OR ${detectedWallets[1].toUpperCase()}`;
+        } else {
+          buttonText = `🔌 CONNECT WALLET (${detectedWallets.length} detected)`;
+        }
+      } else {
+        if (isMobile) {
+          buttonText = '📱 INSTALL MOBILE WALLET';
+        } else {
+          buttonText = '🔌 INSTALL METAMASK';
+        }
+      }
+      
+      connectBtn.innerText = buttonText;
+      
+      // Add wallet info to debug
+      debugLog("Web wallets detected", detectedWallets.join(', ') || 'None');
+      
+      // Show wallet recommendations if no wallet detected
+      if (detectedWallets.length === 0) {
+        showWalletRecommendations(isMobile);
+      }
+    }
+    
+    // Show wallet recommendations for web users
+    function showWalletRecommendations(isMobile) {
+      const recommendations = document.createElement('div');
+      recommendations.id = 'walletRecommendations';
+      recommendations.style.cssText = `
+        background: rgba(255, 174, 0, 0.1);
+        border: 2px solid #ffae00;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+        text-align: center;
+        font-size: 0.6rem;
+        line-height: 1.4;
+      `;
+      
+      if (isMobile) {
+        recommendations.innerHTML = `
+          <p>📱 <strong>Mobile Wallet Recommendations:</strong></p>
+          <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 0.5rem;">
+            <button onclick="window.open('https://metamask.io/download/', '_blank')" style="background: #f16822; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 0.6rem;">📱 MetaMask Mobile</button>
+            <button onclick="window.open('https://www.coinbase.com/wallet', '_blank')" style="background: #0052ff; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 0.6rem;">💰 Coinbase Wallet</button>
+          </div>
+        `;
+      } else {
+        recommendations.innerHTML = `
+          <p>🔌 <strong>Install a Web3 Wallet to Continue:</strong></p>
+          <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 0.5rem;">
+            <button onclick="window.open('https://metamask.io/download/', '_blank')" style="background: #f16822; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 0.6rem;">🦊 Install MetaMask</button>
+            <button onclick="window.open('https://www.coinbase.com/wallet', '_blank')" style="background: #0052ff; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 0.6rem;">💰 Coinbase Wallet</button>
+            <button onclick="window.open('https://rabby.io/', '_blank')" style="background: #7c2ae8; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 0.6rem;">🐰 Rabby Wallet</button>
+          </div>
+        `;
+      }
+      
+      // Insert after the connect button
+      const connectBtn = document.getElementById('connectBtn');
+      connectBtn.parentNode.insertBefore(recommendations, connectBtn.nextSibling);
+    }
+    
+    // Show mobile wallet installation options
+    function showMobileWalletOptions() {
+      const modal = createWalletModal();
+      modal.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+          <h3 style="color: #ffae00; margin-bottom: 1rem;">📱 Install Mobile Wallet</h3>
+          <p style="margin-bottom: 1.5rem; color: #eee;">You need a Web3 wallet to play Block Digger:</p>
+          
+          <div style="display: flex; flex-direction: column; gap: 1rem; max-width: 300px; margin: 0 auto;">
+            <button onclick="window.open('https://metamask.io/download/', '_blank'); closeWalletModal();" 
+                    style="background: #f16822; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; cursor: pointer;">
+              🦊 Download MetaMask Mobile
+            </button>
+            
+            <button onclick="window.open('https://www.coinbase.com/wallet', '_blank'); closeWalletModal();" 
+                    style="background: #0052ff; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; cursor: pointer;">
+              💰 Download Coinbase Wallet
+            </button>
+            
+            <button onclick="window.open('https://warpcast.com/', '_blank'); closeWalletModal();" 
+                    style="background: #8B5CF6; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; cursor: pointer;">
+              🟣 Use Warpcast (Recommended)
+            </button>
+          </div>
+          
+          <button onclick="closeWalletModal()" 
+                  style="background: #262b44; color: #8b9bb4; border: 2px solid #3a4466; padding: 8px 16px; border-radius: 4px; font-size: 0.6rem; cursor: pointer; margin-top: 1rem;">
+            ✕ Close
+          </button>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    
+    // Show desktop wallet installation options
+    function showDesktopWalletOptions() {
+      const modal = createWalletModal();
+      modal.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+          <h3 style="color: #ffae00; margin-bottom: 1rem;">🔌 Install Web3 Wallet</h3>
+          <p style="margin-bottom: 1.5rem; color: #eee;">You need a Web3 wallet to play Block Digger:</p>
+          
+          <div style="display: flex; flex-direction: column; gap: 1rem; max-width: 300px; margin: 0 auto;">
+            <button onclick="window.open('https://metamask.io/download/', '_blank'); closeWalletModal();" 
+                    style="background: #f16822; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; cursor: pointer;">
+              🦊 Install MetaMask (Recommended)
+            </button>
+            
+            <button onclick="window.open('https://www.coinbase.com/wallet', '_blank'); closeWalletModal();" 
+                    style="background: #0052ff; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; cursor: pointer;">
+              💰 Install Coinbase Wallet
+            </button>
+            
+            <button onclick="window.open('https://rabby.io/', '_blank'); closeWalletModal();" 
+                    style="background: #7c2ae8; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 0.7rem; cursor: pointer;">
+              🐰 Install Rabby Wallet
+            </button>
+          </div>
+          
+          <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(255, 174, 0, 0.1); border-radius: 8px;">
+            <p style="color: #ffae00; font-size: 0.6rem; margin: 0;">
+              💡 After installing, refresh this page to connect your wallet
+            </p>
+          </div>
+          
+          <button onclick="closeWalletModal()" 
+                  style="background: #262b44; color: #8b9bb4; border: 2px solid #3a4466; padding: 8px 16px; border-radius: 4px; font-size: 0.6rem; cursor: pointer; margin-top: 1rem;">
+            ✕ Close
+          </button>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    
+    // Create wallet modal
+    function createWalletModal() {
+      const modal = document.createElement('div');
+      modal.id = 'walletModal';
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        font-family: 'Press Start 2P', cursive;
+      `;
+      
+      const modalContent = document.createElement('div');
+      modalContent.style.cssText = `
+        background: #181425;
+        border: 4px solid #0f0f1b;
+        border-radius: 8px;
+        box-shadow: 5px 5px 0 #0f0f1b;
+        max-width: 90vw;
+        max-height: 90vh;
+        overflow-y: auto;
+      `;
+      
+      modal.appendChild(modalContent);
+      return modalContent;
+    }
+    
+    // Close wallet modal
+    window.closeWalletModal = function() {
+      const modal = document.getElementById('walletModal');
+      if (modal) {
+        modal.remove();
       }
     }
     
@@ -715,7 +920,7 @@
       let isInitialConnect = true;
       
       // Debug mode - enable for troubleshooting
-      const DEBUG = true;
+      const DEBUG = false;
       
       // Safe values
       const safeValues = {
@@ -864,38 +1069,62 @@
           console.log('🟣 Auto-connecting Farcaster wallet...');
           await connect(true);
           
-        // Priority 2: Regular browser wallets
+        // Priority 2: Regular browser wallets  
         } else if (window.ethereum) {
+          debugLog("Web wallet detected, attempting auto-connect");
           document.getElementById('autoConnecting').style.display = 'block';
           
           try {
+            // Check if already connected
             const accounts = await window.ethereum.request({ method: 'eth_accounts' });
             if (accounts && accounts.length > 0) {
-              debugLog("Auto-connecting wallet...");
+              debugLog("Auto-connecting web wallet", `Found ${accounts.length} accounts`);
               if (isMobile) {
                 console.log('📱 Auto-connecting mobile wallet...');
+              } else {
+                console.log('🔌 Auto-connecting web wallet...');
               }
               await connect(true);
             } else {
               document.getElementById('autoConnecting').style.display = 'none';
+              debugLog("No connected accounts found");
               
-              // Show appropriate message for first-time users
+              // Update UI to show available wallets
+              setTimeout(() => {
+                updateWebWalletUI(isMobile);
+              }, 100);
+              
+              // Show helpful tips for first-time users
               if (isMobile && !isFarcasterFrame) {
                 console.log('💡 Tip: Use Warpcast app for better mobile experience!');
+              } else {
+                console.log('💡 Click connect to access your wallet');
               }
             }
           } catch (error) {
             console.error("Auto-connect error:", error);
+            debugLog("Auto-connect failed", error.message);
             document.getElementById('autoConnecting').style.display = 'none';
+            
+            // Still update UI to show available options
+            setTimeout(() => {
+              updateWebWalletUI(isMobile);
+            }, 100);
           }
           
         // No wallet available
         } else {
+          debugLog("No wallet detected");
           if (isMobile) {
             console.log('📱 No wallet detected on mobile. Please use Warpcast or install a mobile wallet.');
           } else {
             console.log('🔌 No wallet detected. Please install MetaMask or similar.');
           }
+          
+          // Show wallet recommendations
+          setTimeout(() => {
+            updateWebWalletUI(isMobile);
+          }, 100);
         }
       }
       
@@ -957,10 +1186,13 @@
           } else {
             document.getElementById('autoConnecting').style.display = 'none';
             
-            if (isMobile) {
-              alert('Please use Warpcast app or install a mobile wallet like MetaMask Mobile!');
-            } else {
-              alert('Please install MetaMask or use Warpcast!');
+            // Better UX: Show wallet installation options instead of just alert
+            if (!isAuto) {
+              if (isMobile) {
+                showMobileWalletOptions();
+              } else {
+                showDesktopWalletOptions();
+              }
             }
             return;
           }
@@ -1096,8 +1328,14 @@
         await loadStats();
         await loadLeaderboard();
         
-        // Hide connect button after successful connection
-        connectBtn.style.display = 'none';
+                  // Hide connect button and wallet recommendations after successful connection
+          connectBtn.style.display = 'none';
+          
+          // Remove wallet recommendations if they exist
+          const recommendations = document.getElementById('walletRecommendations');
+          if (recommendations) {
+            recommendations.remove();
+          }
         
         // First connection is complete
         isInitialConnect = false;
