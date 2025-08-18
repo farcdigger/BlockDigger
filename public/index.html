@@ -13,7 +13,7 @@
   <meta name="fc:frame:button:1:target" content="https://block-digger.vercel.app/block-digger">
   
   <link rel="manifest" href="/.well-known/farcaster.json">
-  <link rel="icon" type="image/png" href="/pickaxe.png">
+  <link rel="icon" type="image/png" href="/Block.png">
   
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   
@@ -233,12 +233,15 @@
     }
 
     #debugInfo {
-      display: none;
+      display: block;
       font-size: 0.5rem;
       margin-top: 1rem;
       padding: 0.5rem;
       background: #1f1a2e;
       border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #29adff;
     }
     
     .wallet-info {
@@ -580,9 +583,14 @@
                           window.location.href.includes('warpcast') ||
                           window.parent !== window; // Frame detection
         
-        console.log('Environment check:', { isMobile, isWarpcast, userAgent: navigator.userAgent });
+        // Check if we're in a Farcaster context
+        const inFarcasterContext = window.location.hostname.includes('farcaster') || 
+                                  window.location.hostname.includes('warpcast') ||
+                                  window.parent !== window;
         
-        const module = await import('https://esm.sh/@farcaster/frame-sdk');
+        console.log('Environment check:', { isMobile, isWarpcast, inFarcasterContext, hostname: window.location.hostname, userAgent: navigator.userAgent });
+        
+        const module = await import('https://esm.sh/@farcaster/miniapp-sdk');
         sdk = module.sdk;
         isFarcasterFrame = true;
         console.log('Running in Farcaster Frame');
@@ -706,8 +714,8 @@
       let hasJoinedMining = false;
       let isInitialConnect = true;
       
-      // Debug mode
-      const DEBUG = false;
+      // Debug mode - enable for troubleshooting
+      const DEBUG = true;
       
       // Safe values
       const safeValues = {
@@ -809,16 +817,28 @@
       }
       
       function debugLog(message, value = null) {
-        if (!DEBUG) return;
-        
         const debugContainer = document.getElementById('debugInfo');
         
-        let logMessage = `${message}`;
+        let logMessage = `[${new Date().toLocaleTimeString()}] ${message}`;
         if (value !== null) {
           logMessage += `: ${typeof value === 'object' ? JSON.stringify(value) : value}`;
         }
         
-        debugContainer.innerHTML += `<div>${logMessage}</div>`;
+        if (DEBUG) {
+          const div = document.createElement('div');
+          div.style.color = '#29adff';
+          div.style.marginBottom = '2px';
+          div.textContent = logMessage;
+          debugContainer.appendChild(div);
+          
+          // Keep only last 20 debug messages
+          while (debugContainer.children.length > 20) {
+            debugContainer.removeChild(debugContainer.firstChild);
+          }
+          
+          debugContainer.scrollTop = debugContainer.scrollHeight;
+        }
+        
         console.log(logMessage);
       }
       
@@ -889,9 +909,28 @@
           // Check for Farcaster wallet first (prioritize on mobile)
           if (isFarcasterFrame && sdk?.wallet?.ethProvider) {
             try {
+              // Check if wallet is properly initialized
+              if (!sdk.wallet.ethProvider.request) {
+                throw new Error("Farcaster wallet provider not ready");
+              }
+              
               provider = new ethers.providers.Web3Provider(sdk.wallet.ethProvider);
+              
+              // Get accounts first to ensure wallet is connected
+              const accounts = await sdk.wallet.ethProvider.request({ method: 'eth_accounts' });
+              
+              if (!accounts || accounts.length === 0) {
+                // Request account access if not connected
+                const requestedAccounts = await sdk.wallet.ethProvider.request({ method: 'eth_requestAccounts' });
+                if (!requestedAccounts || requestedAccounts.length === 0) {
+                  throw new Error("No accounts available in Farcaster wallet");
+                }
+                user = requestedAccounts[0];
+              } else {
+                user = accounts[0];
+              }
+              
               signer = provider.getSigner();
-              user = await signer.getAddress();
               
               document.getElementById("wallet").innerText = `🟣 FARCASTER: ${user.slice(0,6)}...${user.slice(-4)}`;
               document.getElementById('autoConnecting').style.display = 'none';
@@ -945,42 +984,94 @@
       
       // Helper function for regular wallet connection
       async function connectRegularWallet(isAuto, isMobile) {
-        let accounts;
-        
-        if (isAuto) {
-          accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        } else {
-          accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        }
-        
-        if (accounts.length === 0) {
-          document.getElementById('autoConnecting').style.display = 'none';
-          if (!isAuto) {
-            if (isMobile) {
-              alert('Please select an account in your mobile wallet.');
-            } else {
-              alert('Please select an account in your wallet.');
+        try {
+          // Check if window.ethereum is available and functional
+          if (!window.ethereum || !window.ethereum.request) {
+            throw new Error("No compatible wallet found");
+          }
+          
+          let accounts;
+          
+          if (isAuto) {
+            accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          } else {
+            accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          }
+          
+          if (!accounts || accounts.length === 0) {
+            document.getElementById('autoConnecting').style.display = 'none';
+            if (!isAuto) {
+              if (isMobile) {
+                alert('Please select an account in your mobile wallet.');
+              } else {
+                alert('Please select an account in your wallet.');
+              }
+            }
+            return;
+          }
+          
+          // Check if we're on the correct network (Base)
+          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+          const baseChainId = '0x2105'; // Base mainnet chain ID
+          
+          if (chainId !== baseChainId) {
+            try {
+              await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: baseChainId }],
+              });
+            } catch (switchError) {
+              // If Base network is not added, add it
+              if (switchError.code === 4902) {
+                await window.ethereum.request({
+                  method: 'wallet_addEthereumChain',
+                  params: [{
+                    chainId: baseChainId,
+                    chainName: 'Base',
+                    nativeCurrency: {
+                      name: 'Ethereum',
+                      symbol: 'ETH',
+                      decimals: 18
+                    },
+                    rpcUrls: ['https://mainnet.base.org'],
+                    blockExplorerUrls: ['https://basescan.org']
+                  }]
+                });
+              }
             }
           }
-          return;
-        }
-        
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        user = accounts[0];
-        
-        // Detect wallet type
-        let walletType = "WALLET";
-        if (window.ethereum.isMetaMask) walletType = "METAMASK";
-        else if (window.ethereum.isCoinbaseWallet) walletType = "COINBASE";
-        else if (window.ethereum.isWalletConnect) walletType = "WALLETCONNECT";
-        
-        document.getElementById("wallet").innerText = `${walletType}: ${user.slice(0,6)}...${user.slice(-4)}`;
-        document.getElementById('autoConnecting').style.display = 'none';
-        debugLog(`${walletType} wallet connected`, user);
-        
-        if (isMobile) {
-          console.log(`✅ Mobile ${walletType} wallet connected successfully!`);
+          
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          user = accounts[0];
+          
+          // Detect wallet type
+          let walletType = "WALLET";
+          if (window.ethereum.isMetaMask) walletType = "METAMASK";
+          else if (window.ethereum.isCoinbaseWallet) walletType = "COINBASE";
+          else if (window.ethereum.isWalletConnect) walletType = "WALLETCONNECT";
+          else if (window.ethereum.isRabby) walletType = "RABBY";
+          
+          document.getElementById("wallet").innerText = `${walletType}: ${user.slice(0,6)}...${user.slice(-4)}`;
+          document.getElementById('autoConnecting').style.display = 'none';
+          debugLog(`${walletType} wallet connected`, user);
+          
+          if (isMobile) {
+            console.log(`✅ Mobile ${walletType} wallet connected successfully!`);
+          }
+          
+        } catch (error) {
+          console.error("Regular wallet connection error:", error);
+          document.getElementById('autoConnecting').style.display = 'none';
+          
+          if (!isAuto) {
+            if (isMobile) {
+              alert(`Wallet connection failed: ${error.message}\n\nPlease make sure your wallet is unlocked and connected to Base network.`);
+            } else {
+              alert(`Wallet connection failed: ${error.message}\n\nPlease install MetaMask or another Web3 wallet.`);
+            }
+          }
+          throw error;
         }
       }
       
