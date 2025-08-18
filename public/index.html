@@ -688,7 +688,7 @@
       connectBtn.innerText = buttonText;
       
       // Add wallet info to debug
-      debugLog("Web wallets detected", detectedWallets.join(', ') || 'None');
+      safeLog("Web wallets detected", detectedWallets.join(', ') || 'None');
       
       // Show wallet recommendations if no wallet detected
       if (detectedWallets.length === 0) {
@@ -850,45 +850,54 @@
       }
     }
     
+    // Safe logging function for early use
+    function safeLog(message, value = null) {
+      let logMessage = `[${new Date().toLocaleTimeString()}] ${message}`;
+      if (value !== null) {
+        logMessage += `: ${typeof value === 'object' ? JSON.stringify(value) : value}`;
+      }
+      console.log(logMessage);
+    }
+    
     // Robust ethereum provider detection
     function getEthereumProvider() {
       // Priority order for multiple wallet support
       if (window.ethereum) {
         // If multiple providers exist, try to get the best one
         if (window.ethereum.providers && Array.isArray(window.ethereum.providers)) {
-          debugLog("Multiple providers detected", window.ethereum.providers.length);
+          safeLog("Multiple providers detected", window.ethereum.providers.length);
           
           // Prefer MetaMask if available
           const metamask = window.ethereum.providers.find(p => p.isMetaMask);
           if (metamask) {
-            debugLog("Using MetaMask provider");
+            safeLog("Using MetaMask provider");
             return metamask;
           }
           
           // Prefer Coinbase if available
           const coinbase = window.ethereum.providers.find(p => p.isCoinbaseWallet);
           if (coinbase) {
-            debugLog("Using Coinbase provider");
+            safeLog("Using Coinbase provider");
             return coinbase;
           }
           
           // Use first available provider
-          debugLog("Using first available provider");
+          safeLog("Using first available provider");
           return window.ethereum.providers[0];
         }
         
         // Single provider
-        debugLog("Single ethereum provider detected");
+        safeLog("Single ethereum provider detected");
         return window.ethereum;
       }
       
       // Check for specific wallet providers as fallback
       if (window.web3 && window.web3.currentProvider) {
-        debugLog("Using web3 current provider");
+        safeLog("Using web3 current provider");
         return window.web3.currentProvider;
       }
       
-      debugLog("No ethereum provider found");
+      safeLog("No ethereum provider found");
       return null;
     }
     
@@ -1136,14 +1145,14 @@
         } else {
           const ethProvider = getEthereumProvider();
           if (ethProvider) {
-            debugLog("Web wallet detected, attempting auto-connect");
+            safeLog("Web wallet detected, attempting auto-connect");
           document.getElementById('autoConnecting').style.display = 'block';
           
           try {
               // Check if already connected
               const accounts = await ethProvider.request({ method: 'eth_accounts' });
             if (accounts && accounts.length > 0) {
-              debugLog("Auto-connecting web wallet", `Found ${accounts.length} accounts`);
+              safeLog("Auto-connecting web wallet", `Found ${accounts.length} accounts`);
               if (isMobile) {
                 console.log('📱 Auto-connecting mobile wallet...');
               } else {
@@ -1152,7 +1161,7 @@
               await connect(true);
             } else {
               document.getElementById('autoConnecting').style.display = 'none';
-              debugLog("No connected accounts found");
+              safeLog("No connected accounts found");
               
               // Update UI to show available wallets
               setTimeout(() => {
@@ -1168,7 +1177,7 @@
             }
           } catch (error) {
             console.error("Auto-connect error:", error);
-            debugLog("Auto-connect failed", error.message);
+            safeLog("Auto-connect failed", error.message);
             document.getElementById('autoConnecting').style.display = 'none';
             
             // Still update UI to show available options
@@ -1179,7 +1188,7 @@
           
         // No wallet available
         } else {
-            debugLog("No wallet detected");
+            safeLog("No wallet detected");
             if (isMobile) {
               console.log('📱 No wallet detected on mobile. Please use Warpcast or install a mobile wallet.');
             } else {
@@ -1291,7 +1300,7 @@
             throw new Error("No compatible wallet found");
           }
           
-          debugLog("Using ethereum provider", provider.constructor.name || 'Unknown');
+          safeLog("Using ethereum provider", provider.constructor.name || 'Unknown');
           
             let accounts;
             
@@ -1361,7 +1370,7 @@
           
           document.getElementById("wallet").innerText = `${walletType}: ${user.slice(0,6)}...${user.slice(-4)}`;
             document.getElementById('autoConnecting').style.display = 'none';
-          debugLog(`${walletType} wallet connected`, user);
+          safeLog(`${walletType} wallet connected`, user);
           
           if (isMobile) {
             console.log(`✅ Mobile ${walletType} wallet connected successfully!`);
