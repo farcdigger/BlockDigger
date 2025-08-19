@@ -1341,22 +1341,36 @@
           }
           
           safeLog("Using ethereum provider", provider.constructor.name || 'Unknown');
+          safeLog("Provider details", { 
+            isMetaMask: provider.isMetaMask, 
+            isConnected: provider.isConnected?.(),
+            chainId: provider.chainId 
+          });
           
             let accounts;
             
             if (isAuto) {
+            safeLog("Checking existing accounts (auto-connect)");
             accounts = await provider.request({ method: 'eth_accounts' });
+            safeLog("Auto-connect accounts result", accounts?.length || 0);
             } else {
-            accounts = await provider.request({ method: 'eth_requestAccounts' });
+            safeLog("Requesting account access from user", `Provider: ${provider.constructor.name}`);
+            try {
+              accounts = await provider.request({ method: 'eth_requestAccounts' });
+              safeLog("Account request result", accounts?.length || 0);
+            } catch (requestError) {
+              safeLog("Account request failed", requestError.message);
+              throw requestError;
             }
+          }
             
           if (!accounts || accounts.length === 0) {
               document.getElementById('autoConnecting').style.display = 'none';
             if (!isAuto) {
               if (isMobile) {
-                alert('Please select an account in your mobile wallet.');
+                alert('MetaMask connection failed!\n\n1. Make sure MetaMask is unlocked\n2. Try refreshing the page\n3. Check if MetaMask popup was blocked');
               } else {
-                alert('Please select an account in your wallet.');
+                alert('MetaMask connection failed!\n\n1. Make sure MetaMask is installed and unlocked\n2. Check if popup was blocked by your browser\n3. Try clicking connect again\n4. Check debug panel for details');
               }
             }
             throw new Error("No accounts found or user cancelled");
@@ -1399,9 +1413,9 @@
           // Set global variables for use in finalizeConnection
           window.ethersProvider = new ethers.providers.Web3Provider(provider);
           provider = window.ethersProvider;
-          signer = provider.getSigner();
-          user = accounts[0];
-          
+            signer = provider.getSigner();
+            user = accounts[0];
+            
           // Update global variables
           window.provider = provider;
           window.signer = signer;
@@ -1452,12 +1466,12 @@
         
         if (!provider || !signer || !user) {
           throw new Error("Missing connection variables");
-        }
-        
-        // Create contracts
-        miningPool = new ethers.Contract(miningPoolAddress, miningPoolABI, signer);
-        mineToken = new ethers.Contract(mineTokenAddress, mineTokenABI, signer);
-        debugLog("Contracts created");
+          }
+          
+          // Create contracts
+          miningPool = new ethers.Contract(miningPoolAddress, miningPoolABI, signer);
+          mineToken = new ethers.Contract(mineTokenAddress, mineTokenABI, signer);
+          debugLog("Contracts created");
           
           // Check if user is already mining
           await checkMiningStatus();
