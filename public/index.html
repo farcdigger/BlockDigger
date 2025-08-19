@@ -1041,7 +1041,10 @@
       const claimBtn = document.getElementById('claimBtn');
       
       // Button event listeners
-      connectBtn.addEventListener('click', connect);
+      connectBtn.addEventListener('click', () => {
+        safeLog("Manual connect button clicked");
+        connect(false); // Explicitly set isAuto = false for manual clicks
+      });
       joinBtn.addEventListener('click', joinMining);
       approveBtn.addEventListener('click', approveMINE);
       stakeBtn.addEventListener('click', stakeMINE);
@@ -1334,6 +1337,8 @@
       // Helper function for regular wallet connection
       async function connectRegularWallet(isAuto, isMobile) {
         try {
+          safeLog("connectRegularWallet called", { isAuto, isMobile });
+          
           // More robust ethereum provider detection
           const provider = getEthereumProvider();
           if (!provider) {
@@ -1349,11 +1354,17 @@
           
             let accounts;
             
-            if (isAuto) {
+                      if (isAuto) {
             safeLog("Checking existing accounts (auto-connect)");
             accounts = await provider.request({ method: 'eth_accounts' });
             safeLog("Auto-connect accounts result", accounts?.length || 0);
-            } else {
+            
+            // If auto-connect finds no accounts, don't proceed further
+            if (!accounts || accounts.length === 0) {
+              safeLog("Auto-connect failed: no existing accounts found");
+              throw new Error("No existing accounts found in auto-connect mode");
+            }
+          } else {
             safeLog("Requesting account access from user", `Provider: ${provider.constructor.name}`);
             try {
               accounts = await provider.request({ method: 'eth_requestAccounts' });
