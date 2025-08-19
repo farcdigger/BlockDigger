@@ -233,7 +233,7 @@
     }
 
     #debugInfo {
-      display: none;
+      display: block;
       font-size: 0.5rem;
       margin-top: 1rem;
       padding: 0.5rem;
@@ -1016,7 +1016,7 @@
       let isInitialConnect = true;
       
       // Debug mode - enable for troubleshooting
-      const DEBUG = false;
+      const DEBUG = true;
       window.DEBUG = DEBUG;
       
       // Safe values
@@ -1312,12 +1312,14 @@
         } catch (e) {
           document.getElementById('autoConnecting').style.display = 'none';
           debugLog("Connection error", e.message);
+          debugLog("Full error details", { name: e.name, message: e.message, stack: e.stack });
+          
           if (!isAuto) {
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             if (isMobile) {
               alert('Connection error: ' + e.message + '\n\nTry using Warpcast app or a mobile wallet.');
             } else {
-              alert('Connection error: ' + e.message);
+              alert('Connection error: ' + e.message + '\n\nCheck debug panel for details.');
             }
           }
         }
@@ -1408,15 +1410,17 @@
             console.log(`✅ Mobile ${walletType} wallet connected successfully!`);
           }
           
-        } catch (error) {
+                } catch (error) {
           console.error("Regular wallet connection error:", error);
-            document.getElementById('autoConnecting').style.display = 'none';
+          safeLog("Regular wallet connection error", error.message);
+          safeLog("Full wallet error details", { name: error.name, message: error.message, code: error.code });
+          document.getElementById('autoConnecting').style.display = 'none';
           
           if (!isAuto) {
             if (isMobile) {
               alert(`Wallet connection failed: ${error.message}\n\nPlease make sure your wallet is unlocked and connected to Base network.`);
             } else {
-              alert(`Wallet connection failed: ${error.message}\n\nPlease install MetaMask or another Web3 wallet.`);
+              alert(`Wallet connection failed: ${error.message}\n\nPlease install MetaMask or another Web3 wallet.\n\nCheck debug panel for details.`);
             }
           }
           throw error;
