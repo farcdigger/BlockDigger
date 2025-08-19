@@ -1,20 +1,25 @@
 {
-  "frame": {
+  "miniapp": {
     "version": "1",
     "name": "Block Digger",
     "iconUrl": "https://block-digger.vercel.app/Block.png",
-    "homeUrl": "https://block-digger.vercel.app/block-digger",
-    "splashImageUrl": "https://block-digger.vercel.app/block-digger-splash.png",
+    "homeUrl": "https://block-digger.vercel.app/",
+    "splashImageUrl": "https://block-digger.vercel.app/Block.png",
     "splashBackgroundColor": "#181425",
     "subtitle": "Retro Mining Game",
-    "description": "Stake MINE tokens to earn rewards!",
+    "description": "Stake MINE tokens to earn rewards in this retro blockchain mining game!",
     "screenshotUrls": [
-      "https://block-digger.vercel.app/screenshot1.png"
+      "https://block-digger.vercel.app/Block.png"
     ],
     "primaryCategory": "games",
-    "tags": ["mining", "blockchain", "onchain"],
-    "ogTitle": "Block Digger - Play to Earn",
-    "ogDescription": "Mine tokens in a retro onchain world.",
-    "ogImageUrl": "https://block-digger.vercel.app/block-digger-preview.png"
+    "tags": ["mining", "blockchain", "onchain", "defi", "staking"],
+    "ogTitle": "Block Digger - Play to Earn Mining Game",
+    "ogDescription": "Mine tokens in a retro onchain world. Stake MINE tokens and earn rewards!",
+    "ogImageUrl": "https://block-digger.vercel.app/Block.png"
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjI1MTYxOSwidHlwZSI6ImF1dGgiLCJrZXkiOiIweDk3Njc1RjAzRDY1RkFCNzM3MWZhMkJlQjNkYkY5YzY4NDJjOGQ1MjUifQ",
+    "payload": "eyJkb21haW4iOiJibG9jay1kaWdnZXIudmVyY2VsLmFwcCJ9",
+    "signature": "NQ3mIb6dW1WmQeRTKOvppm+PZmxziYC9sFvevL0J0F8jnUAKZ9MCQVrr+hFEO6N/17D1Zmh04HXrOcFQlXQepxw="
   }
 }
