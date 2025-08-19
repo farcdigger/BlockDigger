@@ -1313,21 +1313,21 @@
               }
               return;
             }
-          }
-          
+            }
+            
           // Common connection success logic
           await finalizeConnection();
-          
+            
         } catch (e) {
-          document.getElementById('autoConnecting').style.display = 'none';
+            document.getElementById('autoConnecting').style.display = 'none';
           debugLog("Connection error", e.message);
           debugLog("Full error details", { name: e.name, message: e.message, stack: e.stack });
-          
+            
           if (!isAuto) {
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             if (isMobile) {
               alert('Connection error: ' + e.message + '\n\nTry using Warpcast app or a mobile wallet.');
-            } else {
+          } else {
               alert('Connection error: ' + e.message + '\n\nCheck debug panel for details.');
             }
           }
@@ -1376,7 +1376,7 @@
           }
             
           if (!accounts || accounts.length === 0) {
-              document.getElementById('autoConnecting').style.display = 'none';
+            document.getElementById('autoConnecting').style.display = 'none';
             if (!isAuto) {
               if (isMobile) {
                 alert('MetaMask connection failed!\n\n1. Make sure MetaMask is unlocked\n2. Try refreshing the page\n3. Check if MetaMask popup was blocked');
@@ -1423,12 +1423,12 @@
           
           // Set global variables for use in finalizeConnection
           window.ethersProvider = new ethers.providers.Web3Provider(provider);
-          provider = window.ethersProvider;
-            signer = provider.getSigner();
-            user = accounts[0];
+          const ethersProvider = window.ethersProvider;
+          const signer = ethersProvider.getSigner();
+          const user = accounts[0];
             
           // Update global variables
-          window.provider = provider;
+          window.provider = ethersProvider;
           window.signer = signer;
           window.user = user;
             
