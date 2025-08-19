@@ -883,6 +883,18 @@
       }
     }
     
+    // Safe message function for sandboxed environments (Farcaster)
+    function showMessage(message) {
+      safeLog("User Message", message);
+      try {
+        // Try alert first (works in regular browsers)
+        alert(message);
+      } catch (e) {
+        // Fallback for sandboxed environments - just log
+        console.warn("Alert blocked (sandboxed), message logged:", message);
+      }
+    }
+    
     // Robust ethereum provider detection
     function getEthereumProvider() {
       // Priority order for multiple wallet support
@@ -1272,6 +1284,11 @@
             
             signer = provider.getSigner();
             
+            // Set global variables for finalizeConnection
+            window.provider = provider;
+            window.signer = signer;
+            window.user = user;
+            
             document.getElementById("wallet").innerText = `🟣 FARCASTER: ${user.slice(0,6)}...${user.slice(-4)}`;
             document.getElementById('autoConnecting').style.display = 'none';
             safeLog("Farcaster wallet connected", user);
@@ -1280,6 +1297,9 @@
             if (isMobile) {
               console.log("✅ Mobile Farcaster wallet connected successfully!");
             }
+            
+            // Initialize contracts and complete connection
+            await finalizeConnection();
             
           } catch (farcasterError) {
             console.error("Farcaster wallet connection failed:", farcasterError);
@@ -1602,7 +1622,7 @@
           }, 1500);
         } catch (e) {
           debugLog("Approve error", e.message);
-          alert('Approval failed: ' + e.message);
+          showMessage('Approval failed: ' + e.message);
           approveBtn.innerText = '📑 APPROVE MINE';
         } finally {
           approveBtn.disabled = false;
@@ -1650,7 +1670,7 @@
           }, 2000);
         } catch (e) {
           debugLog("Stake error", e.message);
-          alert('Stake failed: ' + e.message);
+          showMessage('Stake failed: ' + e.message);
           stakeBtn.innerText = '📥 STAKE';
           stakeBtn.disabled = false;
         }
@@ -1701,7 +1721,7 @@
           await updateMineBalance();
         } catch (e) {
           debugLog("Join error", e.message);
-          alert('Transaction failed: ' + e.message);
+          showMessage('Transaction failed: ' + e.message);
           joinBtn.disabled = false;
           joinBtn.innerText = '🚀 JOIN MINING (0.003 ETH)';
         }
@@ -1745,7 +1765,7 @@
           }, 2000);
         } catch (e) {
           debugLog("Unstake error", e.message);
-          alert('Transaction failed: ' + e.message);
+          showMessage('Transaction failed: ' + e.message);
           unstakeBtn.innerText = '🔥 UNSTAKE';
           unstakeBtn.disabled = false;
         }
@@ -1779,7 +1799,7 @@
           }, 2000);
         } catch (e) {
           debugLog("Claim error", e.message);
-          alert('Transaction failed: ' + e.message);
+          showMessage('Transaction failed: ' + e.message);
           claimBtn.innerText = '💰 CLAIM REWARDS';
           claimBtn.disabled = !hasStakedTokens || parseFloat(safeValues.pendingReward) <= 0;
         }
