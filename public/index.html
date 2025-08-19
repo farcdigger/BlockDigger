@@ -233,7 +233,7 @@
     }
 
     #debugInfo {
-      display: block;
+      display: none;
       font-size: 0.5rem;
       margin-top: 1rem;
       padding: 0.5rem;
@@ -580,23 +580,27 @@
         // Additional checks for mobile Farcaster environment
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const isWarpcast = navigator.userAgent.includes('Warpcast') || 
-                          window.location.href.includes('warpcast') ||
-                          window.parent !== window; // Frame detection
+                          window.location.href.includes('warpcast');
         
-        // Check if we're in a Farcaster context
+        // More strict Farcaster context detection
         const inFarcasterContext = window.location.hostname.includes('farcaster') || 
                                   window.location.hostname.includes('warpcast') ||
-                                  (window.parent !== window && (
-                                    window.location.href.includes('farcaster') || 
-                                    window.location.href.includes('warpcast') ||
-                                    document.referrer.includes('farcaster') ||
-                                    document.referrer.includes('warpcast')
-                                  ));
+                                  document.referrer.includes('farcaster') ||
+                                  document.referrer.includes('warpcast') ||
+                                  isWarpcast;
         
         console.log('Environment check:', { isMobile, isWarpcast, inFarcasterContext, hostname: window.location.hostname, userAgent: navigator.userAgent });
         
+        // Only proceed if we're actually in a Farcaster context
+        if (!inFarcasterContext) {
+          throw new Error("Not in Farcaster context");
+        }
+        
         const module = await import('https://esm.sh/@farcaster/miniapp-sdk');
         sdk = module.sdk;
+        
+        // Only set isFarcasterFrame if SDK loads AND we're in the right context
+        if (sdk && inFarcasterContext) {
         isFarcasterFrame = true;
         console.log('Running in Farcaster Frame');
         
@@ -605,14 +609,17 @@
         
         // Show Farcaster-specific features
         document.querySelector('.farcaster-badge').style.display = 'inline-flex';
-        
-        // Update UI for mobile Farcaster
-        if (isMobile) {
-          document.getElementById('connectBtn').innerText = '🟣 CONNECT FARCASTER WALLET';
-          console.log('Mobile Farcaster detected');
-        }
+          
+          // Update UI for mobile Farcaster
+          if (isMobile) {
+            document.getElementById('connectBtn').innerText = '🟣 CONNECT FARCASTER WALLET';
+            console.log('Mobile Farcaster detected');
+          }
         
         return true;
+        } else {
+          throw new Error("Farcaster SDK loaded but not in correct context");
+        }
       } catch (error) {
         console.log('Running in web browser:', error.message);
         isFarcasterFrame = false;
@@ -992,7 +999,7 @@
       let isInitialConnect = true;
       
       // Debug mode - enable for troubleshooting
-      const DEBUG = true;
+      const DEBUG = false;
       
       // Safe values
       const safeValues = {
@@ -1135,7 +1142,9 @@
       async function tryAutoConnect() {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        // Priority 1: Farcaster Frame (especially on mobile)
+        safeLog("Auto-connect starting", { isFarcasterFrame, hasSDK: !!sdk, hasWallet: !!(sdk?.wallet?.ethProvider) });
+        
+        // Priority 1: Farcaster Frame (ONLY if truly in Farcaster)
         if (isFarcasterFrame && sdk?.wallet?.ethProvider) {
           document.getElementById('autoConnecting').style.display = 'block';
           console.log('🟣 Auto-connecting Farcaster wallet...');
@@ -1210,50 +1219,55 @@
           
           const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
           
-          // Check for Farcaster wallet first (prioritize on mobile)
+                  // Check for Farcaster wallet first (ONLY if truly in Farcaster context)
           if (isFarcasterFrame && sdk?.wallet?.ethProvider) {
-            try {
-              // Check if wallet is properly initialized
-              if (!sdk.wallet.ethProvider.request) {
-                throw new Error("Farcaster wallet provider not ready");
-              }
-              
+          try {
+            safeLog("Attempting Farcaster wallet connection");
+            
+            // Check if wallet is properly initialized
+            if (!sdk.wallet.ethProvider.request) {
+              throw new Error("Farcaster wallet provider not ready");
+            }
+            
             provider = new ethers.providers.Web3Provider(sdk.wallet.ethProvider);
-              
-              // Get accounts first to ensure wallet is connected
-              const accounts = await sdk.wallet.ethProvider.request({ method: 'eth_accounts' });
-              
-              if (!accounts || accounts.length === 0) {
-                // Request account access if not connected
-                const requestedAccounts = await sdk.wallet.ethProvider.request({ method: 'eth_requestAccounts' });
-                if (!requestedAccounts || requestedAccounts.length === 0) {
-                  throw new Error("No accounts available in Farcaster wallet");
-                }
-                user = requestedAccounts[0];
-              } else {
-                user = accounts[0];
+            
+            // Get accounts first to ensure wallet is connected
+            const accounts = await sdk.wallet.ethProvider.request({ method: 'eth_accounts' });
+            
+            if (!accounts || accounts.length === 0) {
+              // Request account access if not connected
+              const requestedAccounts = await sdk.wallet.ethProvider.request({ method: 'eth_requestAccounts' });
+              if (!requestedAccounts || requestedAccounts.length === 0) {
+                throw new Error("No accounts available in Farcaster wallet");
               }
-              
+              user = requestedAccounts[0];
+            } else {
+              user = accounts[0];
+            }
+            
             signer = provider.getSigner();
             
-              document.getElementById("wallet").innerText = `🟣 FARCASTER: ${user.slice(0,6)}...${user.slice(-4)}`;
+            document.getElementById("wallet").innerText = `🟣 FARCASTER: ${user.slice(0,6)}...${user.slice(-4)}`;
             document.getElementById('autoConnecting').style.display = 'none';
-            debugLog("Farcaster wallet connected", user);
+            safeLog("Farcaster wallet connected", user);
             
-              // Show success message for mobile Farcaster
-              if (isMobile) {
-                console.log("✅ Mobile Farcaster wallet connected successfully!");
-              }
-              
-            } catch (farcasterError) {
-              console.error("Farcaster wallet connection failed:", farcasterError);
-              // Fallback to regular wallet if Farcaster fails
-              if (window.ethereum) {
-                return await connectRegularWallet(isAuto, isMobile);
-              } else {
-                throw new Error("No wallet available");
-              }
+            // Show success message for mobile Farcaster
+            if (isMobile) {
+              console.log("✅ Mobile Farcaster wallet connected successfully!");
             }
+            
+          } catch (farcasterError) {
+            console.error("Farcaster wallet connection failed:", farcasterError);
+            safeLog("Farcaster connection failed, falling back to web wallet", farcasterError.message);
+            
+            // Fallback to regular wallet if Farcaster fails
+            const ethProvider = getEthereumProvider();
+            if (ethProvider) {
+              return await connectRegularWallet(isAuto, isMobile);
+            } else {
+              throw new Error("No wallet available");
+            }
+          }
             
           } else {
             const ethProvider = getEthereumProvider();
