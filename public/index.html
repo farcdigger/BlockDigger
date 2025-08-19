@@ -864,6 +864,23 @@
         logMessage += `: ${typeof value === 'object' ? JSON.stringify(value) : value}`;
       }
       console.log(logMessage);
+      
+      // Also add to debug container if it exists and debug is enabled
+      const debugContainer = document.getElementById('debugInfo');
+      if (debugContainer && window.DEBUG) {
+        const div = document.createElement('div');
+        div.style.color = '#29adff';
+        div.style.marginBottom = '2px';
+        div.textContent = logMessage;
+        debugContainer.appendChild(div);
+        
+        // Keep only last 20 debug messages
+        while (debugContainer.children.length > 20) {
+          debugContainer.removeChild(debugContainer.firstChild);
+        }
+        
+        debugContainer.scrollTop = debugContainer.scrollHeight;
+      }
     }
     
     // Robust ethereum provider detection
@@ -1000,6 +1017,7 @@
       
       // Debug mode - enable for troubleshooting
       const DEBUG = false;
+      window.DEBUG = DEBUG;
       
       // Safe values
       const safeValues = {
