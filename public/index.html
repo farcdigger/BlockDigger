@@ -1010,6 +1010,10 @@
       ];
 
       let provider, signer, user, miningPool, mineToken;
+      // Global variables for cross-function access
+      window.provider = null;
+      window.signer = null;
+      window.user = null;
       let isApprovedForAll = false;
       let hasStakedTokens = false;
       let hasJoinedMining = false;
@@ -1281,7 +1285,8 @@
             // Fallback to regular wallet if Farcaster fails
             const ethProvider = getEthereumProvider();
             if (ethProvider) {
-              return await connectRegularWallet(isAuto, isMobile);
+              await connectRegularWallet(isAuto, isMobile);
+              // Continue to finalizeConnection after successful fallback
             } else {
               throw new Error("No wallet available");
             }
@@ -1290,19 +1295,20 @@
           } else {
             const ethProvider = getEthereumProvider();
             if (ethProvider) {
-              return await connectRegularWallet(isAuto, isMobile);
+              await connectRegularWallet(isAuto, isMobile);
+              // Continue to finalizeConnection after successful wallet connection
             } else {
-            document.getElementById('autoConnecting').style.display = 'none';
-            
-            // Better UX: Show wallet installation options instead of just alert
-            if (!isAuto) {
-              if (isMobile) {
-                showMobileWalletOptions();
-              } else {
-                showDesktopWalletOptions();
+              document.getElementById('autoConnecting').style.display = 'none';
+              
+              // Better UX: Show wallet installation options instead of just alert
+              if (!isAuto) {
+                if (isMobile) {
+                  showMobileWalletOptions();
+                } else {
+                  showDesktopWalletOptions();
+                }
               }
-            }
-            return;
+              return;
             }
           }
           
@@ -1353,8 +1359,8 @@
                 alert('Please select an account in your wallet.');
               }
             }
-              return;
-            }
+            throw new Error("No accounts found or user cancelled");
+          }
             
           // Check if we're on the correct network (Base)
           const chainId = await provider.request({ method: 'eth_chainId' });
@@ -1387,11 +1393,19 @@
             }
           }
           
-          // Use the specific provider instead of window.ethereum
+                    // Use the specific provider instead of window.ethereum
           window.selectedEthereumProvider = provider;
-          provider = new ethers.providers.Web3Provider(provider);
-            signer = provider.getSigner();
-            user = accounts[0];
+          
+          // Set global variables for use in finalizeConnection
+          window.ethersProvider = new ethers.providers.Web3Provider(provider);
+          provider = window.ethersProvider;
+          signer = provider.getSigner();
+          user = accounts[0];
+          
+          // Update global variables
+          window.provider = provider;
+          window.signer = signer;
+          window.user = user;
             
           // Detect wallet type from the selected provider
           let walletType = "WALLET";
@@ -1414,7 +1428,7 @@
           console.error("Regular wallet connection error:", error);
           safeLog("Regular wallet connection error", error.message);
           safeLog("Full wallet error details", { name: error.name, message: error.message, code: error.code });
-          document.getElementById('autoConnecting').style.display = 'none';
+            document.getElementById('autoConnecting').style.display = 'none';
           
           if (!isAuto) {
             if (isMobile) {
@@ -1427,12 +1441,23 @@
         }
       }
       
-      // Finalize connection process
+            // Finalize connection process
       async function finalizeConnection() {
-          // Create contracts
-          miningPool = new ethers.Contract(miningPoolAddress, miningPoolABI, signer);
-          mineToken = new ethers.Contract(mineTokenAddress, mineTokenABI, signer);
-          debugLog("Contracts created");
+        // Use global variables
+        provider = window.provider;
+        signer = window.signer;
+        user = window.user;
+        
+        debugLog("Finalizing connection", { hasProvider: !!provider, hasSigner: !!signer, hasUser: !!user });
+        
+        if (!provider || !signer || !user) {
+          throw new Error("Missing connection variables");
+        }
+        
+        // Create contracts
+        miningPool = new ethers.Contract(miningPoolAddress, miningPoolABI, signer);
+        mineToken = new ethers.Contract(mineTokenAddress, mineTokenABI, signer);
+        debugLog("Contracts created");
           
           // Check if user is already mining
           await checkMiningStatus();
